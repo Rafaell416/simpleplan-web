@@ -1,9 +1,10 @@
-import Image from "next/image";
-
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 font-sans dark:bg-black">
-      <span>Hello World</span>
-    </div>
+    <section className="flex min-h-screen flex-col items-center justify-center font-sans">
+      <h1 className="text-2xl font-semibold tracking-tight">SimplePlan</h1>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+        Your life, organized in one simple dock.
+      </p>
+    </section>
   );
 }
