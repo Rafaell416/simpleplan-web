@@ -11,7 +11,7 @@ import { TrophyIcon } from '@/components/ui/icons/lucide-trophy';
 const items = [
   {
     title: 'Home',
-    href: '/',
+    href: '/home',
     icon: HouseIcon,
   },
   {
@@ -54,6 +54,7 @@ export function DockBar() {
               <Link
                 key={item.title}
                 href={item.href}
+                tabIndex={-1}
                 className="flex items-center justify-center"
               >
                 <DockItem className="aspect-square">
