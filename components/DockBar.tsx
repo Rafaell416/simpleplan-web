@@ -34,6 +34,11 @@ const items = [
 export function DockBar() {
   const pathname = usePathname();
 
+  // Don't show dock on landing page
+  if (pathname === '/') {
+    return null;
+  }
+
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-8 z-50 flex justify-center">
       <div className="pointer-events-auto">
@@ -45,10 +50,7 @@ export function DockBar() {
         >
           {items.map((item) => {
             const Icon = item.icon;
-            const isActive =
-              item.href === '/'
-                ? pathname === '/'
-                : pathname?.startsWith(item.href);
+            const isActive = pathname?.startsWith(item.href);
 
             return (
               <Link
