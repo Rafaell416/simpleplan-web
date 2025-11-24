@@ -257,23 +257,28 @@ export function TodoList() {
           </div>
         ))}
         
-        {/* Add new todo - only show when in input mode */}
-        {isInputMode && (
-          <div className="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
-            <div className="flex-shrink-0 w-5 h-5 rounded border-2 border-neutral-300 dark:border-neutral-700" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={newTodo}
-              onChange={(e) => setNewTodo(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type to add a new task..."
-              className="flex-1 bg-transparent border-none outline-none text-neutral-900 dark:text-neutral-50 text-base placeholder:text-neutral-400 dark:placeholder:text-neutral-600 rounded px-1 -mx-1 p-0"
-              autoFocus
-              tabIndex={0}
-            />
-          </div>
-        )}
+        {/* Add new todo - always visible on mobile, conditional on desktop */}
+        <div className={`flex items-center gap-3 py-1.5 px-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors ${isInputMode ? 'md:flex' : 'md:hidden'}`}>
+          <div className="flex-shrink-0 w-5 h-5 rounded border-2 border-neutral-300 dark:border-neutral-700" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={newTodo}
+            onChange={(e) => setNewTodo(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setIsInputMode(true)}
+            onBlur={() => {
+              // Only exit input mode on desktop if empty
+              if (!newTodo.trim() && window.innerWidth >= 768) {
+                setIsInputMode(false);
+              }
+            }}
+            placeholder="Type to add a new task..."
+            className="flex-1 bg-transparent border-none outline-none text-neutral-900 dark:text-neutral-50 text-base placeholder:text-neutral-400 dark:placeholder:text-neutral-600 rounded px-1 -mx-1 p-0"
+            autoFocus={isInputMode}
+            tabIndex={0}
+          />
+        </div>
         </div>
       )}
     </div>

@@ -51,7 +51,7 @@ export function KeyboardShortcuts() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-8 right-8 z-40 flex items-center gap-2 rounded-full bg-white/90 dark:bg-neutral-900/90 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-white dark:hover:bg-neutral-900 transition-colors cursor-pointer"
+        className="hidden md:flex fixed bottom-8 right-8 z-40 items-center gap-2 rounded-full bg-white/90 dark:bg-neutral-900/90 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-white dark:hover:bg-neutral-900 transition-colors cursor-pointer"
         aria-label="Show keyboard shortcuts"
       >
         <svg
@@ -77,12 +77,12 @@ export function KeyboardShortcuts() {
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/20 dark:bg-black/40 z-50"
+        className="hidden md:block fixed inset-0 bg-black/20 dark:bg-black/40 z-50"
         onClick={() => setIsOpen(false)}
       />
       
       {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+      <div className="hidden md:flex fixed inset-0 z-50 items-center justify-center p-4 pointer-events-none">
         <div
           className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-800 max-w-md w-full p-6 pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
