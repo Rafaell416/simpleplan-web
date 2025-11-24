@@ -1,5 +1,6 @@
 import { TodoList } from '@/components/TodoList';
 import { Header } from '@/components/Header';
+import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 
 export default function HomePage() {
   return (
@@ -10,6 +11,7 @@ export default function HomePage() {
           <TodoList />
         </div>
       </div>
+      <KeyboardShortcuts />
     </main>
   );
 }
