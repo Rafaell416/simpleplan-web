@@ -25,6 +25,22 @@ export default function GoalsPage() {
       ],
       createdAt: new Date().toISOString(),
     },
+    {
+      id: '2',
+      title: 'Run 30 minutes',
+      period: 'weekly',
+      createdAt: new Date().toISOString(),
+      targetDate: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString(),
+      habits: [
+        {
+          id: '2',
+          goalId: '2',
+          name: 'Run 30 minutes',
+          recurrence: 'weekly',
+          createdAt: new Date().toISOString(),
+        }
+      ],
+    }
   ]);
 
   const handleGoalCreate = (goalData: Omit<Goal, 'id' | 'createdAt' | 'habits'>) => {
