@@ -1,22 +1,14 @@
 'use client';
 
-import { Goal, GoalPeriod } from '@/lib/types';
+import { useRouter } from 'next/navigation';
+import { Goal } from '@/lib/types';
 
 interface GoalCardProps {
   goal: Goal;
 }
 
 export function GoalCard({ goal }: GoalCardProps) {
-  const getPeriodColor = (period: GoalPeriod) => {
-    switch (period) {
-      case 'weekly':
-        return 'bg-neutral-100 dark:bg-neutral-800/50 text-neutral-600 dark:text-neutral-400';
-      case 'monthly':
-        return 'bg-neutral-100 dark:bg-neutral-800/50 text-neutral-600 dark:text-neutral-400';
-      case 'quarterly':
-        return 'bg-neutral-100 dark:bg-neutral-800/50 text-neutral-600 dark:text-neutral-400';
-    }
-  };
+  const router = useRouter();
 
   const calculateProgress = (): number => {
     if (!goal.targetDate) {
@@ -46,19 +38,15 @@ export function GoalCard({ goal }: GoalCardProps) {
   const progress = calculateProgress();
 
   return (
-    <div className="group relative rounded-lg p-4 bg-white dark:bg-neutral-900/60 transition-all duration-200 hover:bg-neutral-50 dark:hover:bg-neutral-900/80 cursor-pointer h-full flex flex-col">
+    <div
+      onClick={() => router.push(`/goals/${goal.id}`)}
+      className="group relative rounded-lg p-4 bg-white dark:bg-neutral-900/60 transition-all duration-200 hover:bg-neutral-50 dark:hover:bg-neutral-900/80 cursor-pointer h-full flex flex-col"
+    >
       {/* Icon and Title Section */}
       <div className="mb-3 flex-1">
         <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-50 tracking-tight line-clamp-2">
           {goal.title}
         </h3>
-        <div className="flex items-center gap-2 mb-2 mt-2">
-          <span
-            className={`px-2 py-0.5 text-xs font-semibold rounded-md ${getPeriodColor(goal.period)}`}
-          >
-            {goal.period.charAt(0).toUpperCase() + goal.period.slice(1)}
-          </span>
-        </div>
       </div>
 
       {/* Bottom Section - Progress Bar and Footer */}
@@ -73,7 +61,7 @@ export function GoalCard({ goal }: GoalCardProps) {
           </div>
         </div>
 
-        {/* Footer Section - Habits Count and Target Date */}
+        {/* Footer Section - Actions Count and Target Date */}
         <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 pt-2 border-t border-neutral-100 dark:border-neutral-800">
           <div className="flex items-center gap-1.5">
             <svg
@@ -89,7 +77,7 @@ export function GoalCard({ goal }: GoalCardProps) {
                 d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
               />
             </svg>
-            <span>{goal.habits.length}</span>
+            <span>{goal.actions.length}</span>
           </div>
           {goal.targetDate && (
             <div className="flex items-center gap-1">

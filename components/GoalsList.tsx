@@ -1,18 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { Goal, Habit } from '@/lib/types';
+import { Goal, Action } from '@/lib/types';
 import { GoalForm } from './GoalForm';
 import { HabitForm } from './HabitForm';
 import { GoalCard } from './GoalCard';
 
 interface GoalsListProps {
   goals: Goal[];
-  onGoalCreate: (goal: Omit<Goal, 'id' | 'createdAt' | 'habits'>) => void;
+  onGoalCreate: (goal: Omit<Goal, 'id' | 'createdAt' | 'actions'>) => void;
   onGoalUpdate: (id: string, goal: Partial<Goal>) => void;
   onGoalDelete: (id: string) => void;
-  onHabitAdd: (goalId: string, habit: Omit<Habit, 'id' | 'goalId' | 'createdAt'>) => void;
-  onHabitDelete: (goalId: string, habitId: string) => void;
+  onActionAdd: (goalId: string, action: Omit<Action, 'id' | 'goalId' | 'createdAt'>) => void;
+  onActionDelete: (goalId: string, actionId: string) => void;
 }
 
 export function GoalsList({
@@ -21,15 +21,15 @@ export function GoalsList({
   onGoalUpdate,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onGoalDelete,
-  onHabitAdd,
+  onActionAdd,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onHabitDelete,
+  onActionDelete,
 }: GoalsListProps) {
   const [isGoalFormOpen, setIsGoalFormOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [habitFormGoalId, setHabitFormGoalId] = useState<string | null>(null);
 
-  const handleGoalSubmit = (goalData: Omit<Goal, 'id' | 'createdAt' | 'habits'>) => {
+  const handleGoalSubmit = (goalData: Omit<Goal, 'id' | 'createdAt' | 'actions'>) => {
     if (editingGoal) {
       onGoalUpdate(editingGoal.id, goalData);
       setEditingGoal(null);
@@ -39,9 +39,9 @@ export function GoalsList({
     setIsGoalFormOpen(false);
   };
 
-  const handleHabitSubmit = (habitData: Omit<Habit, 'id' | 'goalId' | 'createdAt'>) => {
+  const handleHabitSubmit = (habitData: Omit<Action, 'id' | 'goalId' | 'createdAt'>) => {
     if (habitFormGoalId) {
-      onHabitAdd(habitFormGoalId, habitData);
+      onActionAdd(habitFormGoalId, habitData);
       setHabitFormGoalId(null);
     }
   };
@@ -86,16 +86,17 @@ export function GoalsList({
         ))}
       </div>
 
-      {isGoalFormOpen && (
-        <GoalForm
-          goal={editingGoal}
-          onClose={() => {
-            setIsGoalFormOpen(false);
+      <GoalForm
+        goal={editingGoal}
+        open={isGoalFormOpen}
+        onOpenChange={(open) => {
+          setIsGoalFormOpen(open);
+          if (!open) {
             setEditingGoal(null);
-          }}
-          onSubmit={handleGoalSubmit}
-        />
-      )}
+          }
+        }}
+        onSubmit={handleGoalSubmit}
+      />
 
       {habitFormGoalId && (
         <HabitForm

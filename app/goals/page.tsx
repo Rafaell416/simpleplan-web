@@ -1,94 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { GoalsList } from '@/components/GoalsList';
-import { Goal, Habit } from '@/lib/types';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Goal, Action } from '@/lib/types';
+import { useGoals } from '@/lib/useGoals';
 
 export default function GoalsPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
-  const [goals, setGoals] = useState<Goal[]>([
-    // Example goal for demonstration
-    {
-      id: '1',
-      title: 'Read "Atomic Habits" book',
-      period: 'monthly',
-      habits: [
-        {
-          id: '1',
-          goalId: '1',
-          name: 'Read 10 pages',
-          recurrence: 'daily',
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: '2',
-      title: 'Run 30 minutes',
-      period: 'weekly',
-      createdAt: new Date().toISOString(),
-      targetDate: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString(),
-      habits: [
-        {
-          id: '2',
-          goalId: '2',
-          name: 'Run 30 minutes',
-          recurrence: 'weekly',
-          createdAt: new Date().toISOString(),
-        }
-      ],
-    }
-  ]);
+  const {
+    goals,
+    isLoading,
+    createGoal,
+    updateGoal,
+    deleteGoal,
+    addAction,
+    deleteAction,
+  } = useGoals();
 
-  const handleGoalCreate = (goalData: Omit<Goal, 'id' | 'createdAt' | 'habits'>) => {
-    const newGoal: Goal = {
-      ...goalData,
-      id: Date.now().toString(),
-      habits: [],
-      createdAt: new Date().toISOString(),
-    };
-    setGoals([...goals, newGoal]);
+
+  const handleGoalCreate = (goalData: Omit<Goal, 'id' | 'createdAt' | 'actions'>) => {
+    createGoal(goalData);
   };
 
   const handleGoalUpdate = (id: string, goalData: Partial<Goal>) => {
-    setGoals(
-      goals.map((goal) =>
-        goal.id === id ? { ...goal, ...goalData } : goal
-      )
-    );
+    updateGoal(id, goalData);
   };
 
   const handleGoalDelete = (id: string) => {
-    setGoals(goals.filter((goal) => goal.id !== id));
+    deleteGoal(id);
   };
 
-  const handleHabitAdd = (goalId: string, habitData: Omit<Habit, 'id' | 'goalId' | 'createdAt'>) => {
-    const newHabit: Habit = {
-      ...habitData,
-      id: Date.now().toString(),
-      goalId,
-      createdAt: new Date().toISOString(),
-    };
-    setGoals(
-      goals.map((goal) =>
-        goal.id === goalId
-          ? { ...goal, habits: [...goal.habits, newHabit] }
-          : goal
-      )
-    );
+  const handleActionAdd = (goalId: string, actionData: Omit<Action, 'id' | 'goalId' | 'createdAt'>) => {
+    addAction(goalId, actionData);
   };
 
-  const handleHabitDelete = (goalId: string, habitId: string) => {
-    setGoals(
-      goals.map((goal) =>
-        goal.id === goalId
-          ? { ...goal, habits: goal.habits.filter((h) => h.id !== habitId) }
-          : goal
-      )
-    );
+  const handleActionDelete = (goalId: string, actionId: string) => {
+    deleteAction(goalId, actionId);
   };
 
   return (
@@ -96,54 +43,14 @@ export default function GoalsPage() {
       <Header title="Goals" />
       <div className="flex-1 flex items-start justify-center pt-24 pb-20 md:pb-32">
         <div className="w-full max-w-3xl mx-auto px-6 py-8">
-          <Tabs value={selectedPeriod} onValueChange={setSelectedPeriod} className="w-full">
-            <TabsList className="mb-6">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="weekly">Weekly</TabsTrigger>
-              <TabsTrigger value="monthly">Monthly</TabsTrigger>
-              <TabsTrigger value="quarterly">Quarterly</TabsTrigger>
-            </TabsList>
-            <TabsContent value="all">
-              <GoalsList
-                goals={goals}
-                onGoalCreate={handleGoalCreate}
-                onGoalUpdate={handleGoalUpdate}
-                onGoalDelete={handleGoalDelete}
-                onHabitAdd={handleHabitAdd}
-                onHabitDelete={handleHabitDelete}
-              />
-            </TabsContent>
-            <TabsContent value="weekly">
-              <GoalsList
-                goals={goals.filter((goal) => goal.period === 'weekly')}
-                onGoalCreate={handleGoalCreate}
-                onGoalUpdate={handleGoalUpdate}
-                onGoalDelete={handleGoalDelete}
-                onHabitAdd={handleHabitAdd}
-                onHabitDelete={handleHabitDelete}
-              />
-            </TabsContent>
-            <TabsContent value="monthly">
-              <GoalsList
-                goals={goals.filter((goal) => goal.period === 'monthly')}
-                onGoalCreate={handleGoalCreate}
-                onGoalUpdate={handleGoalUpdate}
-                onGoalDelete={handleGoalDelete}
-                onHabitAdd={handleHabitAdd}
-                onHabitDelete={handleHabitDelete}
-              />
-            </TabsContent>
-            <TabsContent value="quarterly">
-              <GoalsList
-                goals={goals.filter((goal) => goal.period === 'quarterly')}
-                onGoalCreate={handleGoalCreate}
-                onGoalUpdate={handleGoalUpdate}
-                onGoalDelete={handleGoalDelete}
-                onHabitAdd={handleHabitAdd}
-                onHabitDelete={handleHabitDelete}
-              />
-            </TabsContent>
-          </Tabs>
+          <GoalsList
+            goals={goals}
+            onGoalCreate={handleGoalCreate}
+            onGoalUpdate={handleGoalUpdate}
+            onGoalDelete={handleGoalDelete}
+            onActionAdd={handleActionAdd}
+            onActionDelete={handleActionDelete}
+          />
         </div>
       </div>
     </main>

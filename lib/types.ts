@@ -1,19 +1,18 @@
 export type GoalPeriod = 'weekly' | 'monthly' | 'quarterly';
-export type HabitRecurrence = 'daily' | 'weekly';
+export type ActionRecurrence = 'daily' | 'weekly';
 
-export interface Habit {
+export interface Action {
   id: string;
   goalId: string;
   name: string;
-  recurrence: HabitRecurrence;
+  recurrence: ActionRecurrence;
   createdAt: string;
 }
 
 export interface Goal {
   id: string;
   title: string;
-  period: GoalPeriod;
-  habits: Habit[];
+  actions: Action[];
   createdAt: string;
   targetDate?: string; // Optional target date for the goal
 }

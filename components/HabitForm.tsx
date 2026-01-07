@@ -1,16 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { HabitRecurrence } from '@/lib/types';
+import { ActionRecurrence } from '@/lib/types';
 
 interface HabitFormProps {
   onClose: () => void;
-  onSubmit: (habit: Omit<import('@/lib/types').Habit, 'id' | 'goalId' | 'createdAt'>) => void;
+  onSubmit: (action: Omit<import('@/lib/types').Action, 'id' | 'goalId' | 'createdAt'>) => void;
 }
 
 export function HabitForm({ onClose, onSubmit }: HabitFormProps) {
   const [name, setName] = useState('');
-  const [recurrence, setRecurrence] = useState<HabitRecurrence>('daily');
+  const [recurrence, setRecurrence] = useState<ActionRecurrence>('daily');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +40,7 @@ export function HabitForm({ onClose, onSubmit }: HabitFormProps) {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-              Add Habit
+              Add Action
             </h3>
             <button
               onClick={onClose}
@@ -66,13 +66,13 @@ export function HabitForm({ onClose, onSubmit }: HabitFormProps) {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label
-                htmlFor="habit-name"
+                htmlFor="action-name"
                 className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2"
               >
-                Habit Name
+                Action Name
               </label>
               <input
-                id="habit-name"
+                id="action-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -85,15 +85,15 @@ export function HabitForm({ onClose, onSubmit }: HabitFormProps) {
 
             <div>
               <label
-                htmlFor="habit-recurrence"
+                htmlFor="action-recurrence"
                 className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2"
               >
                 Recurrence
               </label>
               <select
-                id="habit-recurrence"
+                id="action-recurrence"
                 value={recurrence}
-                onChange={(e) => setRecurrence(e.target.value as HabitRecurrence)}
+                onChange={(e) => setRecurrence(e.target.value as ActionRecurrence)}
                 className="w-full px-3 py-2 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="daily">Daily</option>
@@ -113,7 +113,7 @@ export function HabitForm({ onClose, onSubmit }: HabitFormProps) {
                 type="submit"
                 className="flex-1 px-4 py-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-lg font-medium hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
               >
-                Add Habit
+                Add Action
               </button>
             </div>
           </form>
