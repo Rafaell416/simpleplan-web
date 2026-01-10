@@ -8,12 +8,18 @@ export interface ActionRecurrence {
   customDays?: number[]; // Array of day numbers (0-6) for 'custom' type
 }
 
+export interface ActionCompletion {
+  date: string; // ISO date string (YYYY-MM-DD)
+  completed: boolean;
+}
+
 export interface Action {
   id: string;
   goalId: string;
   name: string;
   recurrence: ActionRecurrence;
   createdAt: string;
+  completions?: ActionCompletion[]; // Array of completion records
 }
 
 export interface Goal {

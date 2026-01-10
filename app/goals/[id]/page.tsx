@@ -5,7 +5,9 @@ import { useState, useRef, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { GoalForm } from '@/components/GoalForm';
 import { ActionRecurrenceDialog } from '@/components/ActionRecurrenceDialog';
+import { ActionProgressTracker } from '@/components/ActionProgressTracker';
 import { Goal, Action, ActionRecurrence } from '@/lib/types';
+import { formatRecurrence } from '@/lib/utils/actionUtils';
 import { useGoals } from '@/lib/useGoals';
 import {
   AlertDialog,
@@ -30,7 +32,7 @@ import { Progress } from '@/components/ui/progress';
 export default function GoalDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { goals, updateGoal, deleteGoal, addAction, updateAction, deleteAction, isLoading } = useGoals();
+  const { goals, updateGoal, deleteGoal, addAction, updateAction, deleteAction, toggleActionCompletion, isLoading } = useGoals();
   const [isEditMode, setIsEditMode] = useState(false);
   const [newActionName, setNewActionName] = useState('');
   const [isInputMode, setIsInputMode] = useState(false);
@@ -183,6 +185,12 @@ export default function GoalDetailPage() {
     }
   };
 
+  const handleToggleActionCompletion = (actionId: string, date: string, completed: boolean) => {
+    if (goal) {
+      toggleActionCompletion(goal.id, actionId, date, completed);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent, actionId?: string) => {
     if (e.key === 'Enter') {
       if (actionId && editingActionId === actionId) {
@@ -260,7 +268,7 @@ export default function GoalDetailPage() {
   return (
     <main className="flex min-h-screen flex-col bg-slate-50 font-sans text-neutral-900 dark:bg-black dark:text-white">
       {/* Header with Title and Actions */}
-      <div className="fixed top-0 left-0 right-0 z-40 pointer-events-none">
+      <div className="pointer-events-none">
         <div className="w-full max-w-3xl px-6 mx-auto pt-8">
           <div className="flex items-center justify-between pointer-events-auto">
             <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
@@ -322,7 +330,7 @@ export default function GoalDetailPage() {
         </div>
       </div>
       
-      <div className="flex-1 flex items-start justify-center pt-24 pb-20 md:pb-32">
+      <div className="flex-1 flex items-start justify-center pb-20 md:pb-32">
         <div className="w-full max-w-3xl mx-auto px-6 py-8">
 
           {/* Progress Bar */}
@@ -370,25 +378,57 @@ export default function GoalDetailPage() {
             </div>
           )}
 
-          {/* Actions List - Similar to TodoList */}
-          <div className="w-full">
+          {/* Actions List */}
+          <div className="w-full mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                Actions
+              </h2>
+              {goalActions.length > 0 && (
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                  {goalActions.length} {goalActions.length === 1 ? 'action' : 'actions'}
+                </span>
+              )}
+            </div>
+            
             {goalActions.length === 0 && !isInputMode ? (
-              <div className="flex flex-col items-center justify-center py-16 px-4">
-                <div className="text-center">
-                  <p className="text-lg text-neutral-600 dark:text-neutral-400 mb-2">
-                    No actions yet
-                  </p>
-                  <p className="text-sm text-neutral-500 dark:text-neutral-500">
-                    Press <kbd className="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded text-xs font-mono">+</kbd> to add your first action
-                  </p>
+              <div className="flex flex-col items-center justify-center py-12 px-4 border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-lg">
+                <div className="text-center space-y-3">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center mb-2">
+                    <svg
+                      className="w-8 h-8 text-neutral-400 dark:text-neutral-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-lg font-medium text-neutral-900 dark:text-neutral-50 mb-1">
+                      No actions yet
+                    </p>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-3">
+                      Add actions to track your progress towards this goal
+                    </p>
+                    <div className="flex flex-col items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                      <p>Press <kbd className="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded font-mono">+</kbd> to add your first action</p>
+                      <p className="text-neutral-400 dark:text-neutral-500">or click the input field below</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {goalActions.map((action) => (
                   <div
                     key={action.id}
-                    className="group flex items-center gap-3 py-1.5 px-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
+                    className="group flex items-center gap-3 py-3 px-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-sm transition-all"
                   >
                     {editingActionId === action.id ? (
                       <>
@@ -405,7 +445,7 @@ export default function GoalDetailPage() {
                             handleSaveEditAction();
                           }}
                           onKeyDown={(e) => handleKeyDown(e, action.id)}
-                          className="flex-1 bg-transparent border-none outline-none text-neutral-900 dark:text-neutral-50 text-base focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1 -mx-1 p-0"
+                          className="flex-1 bg-transparent border-none outline-none text-neutral-900 dark:text-neutral-50 text-base font-medium focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-2 py-1"
                           autoFocus
                           tabIndex={0}
                         />
@@ -421,7 +461,7 @@ export default function GoalDetailPage() {
                             // Prevent blur on the input
                             e.preventDefault();
                           }}
-                          className="text-xs px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                          className="text-xs px-3 py-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-md text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors border border-neutral-200 dark:border-neutral-700 font-medium"
                           tabIndex={0}
                         >
                           {formatRecurrence(editingActionRecurrence)}
@@ -429,52 +469,79 @@ export default function GoalDetailPage() {
                       </>
                     ) : (
                       <>
-                        <button
-                          onClick={() => handleStartEditAction(action)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'e' || e.key === 'E') {
-                              e.preventDefault();
-                              handleStartEditAction(action);
-                            } else if (e.key === 'Delete' || e.key === 'Backspace') {
-                              e.preventDefault();
-                              handleDeleteActionClick(action.id);
-                            }
-                          }}
-                          tabIndex={0}
-                          className="flex-1 text-left text-base text-neutral-900 dark:text-neutral-50 transition-opacity focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1 -mx-1"
-                        >
-                          {action.name}
-                          <span className="ml-2 text-xs text-neutral-500 dark:text-neutral-400">
-                            ({formatRecurrence(action.recurrence)})
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteActionClick(action.id)}
-                          tabIndex={-1}
-                          className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded focus:opacity-100"
-                          aria-label="Delete action"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                        <div className="flex-1 flex items-center gap-3">
+                          <div className="flex-shrink-0 w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></div>
+                          <button
+                            onClick={() => handleStartEditAction(action)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'e' || e.key === 'E') {
+                                e.preventDefault();
+                                handleStartEditAction(action);
+                              } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                                e.preventDefault();
+                                handleDeleteActionClick(action.id);
+                              }
+                            }}
+                            tabIndex={0}
+                            className="flex-1 text-left text-base font-medium text-neutral-900 dark:text-neutral-50 transition-opacity focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1 -mx-1"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                        </button>
+                            {action.name}
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs px-2.5 py-1 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 rounded-md border border-neutral-200 dark:border-neutral-700 font-medium">
+                            {formatRecurrence(action.recurrence)}
+                          </span>
+                          <button
+                            onClick={() => handleDeleteActionClick(action.id)}
+                            tabIndex={-1}
+                            className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-8 h-8 flex items-center justify-center text-neutral-400 hover:text-red-600 dark:hover:text-red-400 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded focus:opacity-100"
+                            aria-label="Delete action"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                        </div>
                       </>
                     )}
                   </div>
                 ))}
 
-                {/* Add new action input */}
-                <div className={`flex items-center gap-3 py-1.5 px-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors ${isInputMode ? 'md:flex' : 'md:hidden'}`}>
+                {/* Add new action input - Mobile */}
+                <div 
+                  className={`md:hidden flex items-center gap-3 py-3 px-4 rounded-lg border-2 border-dashed transition-colors cursor-pointer ${
+                    isInputMode 
+                      ? 'border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-900/10' 
+                      : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
+                  }`}
+                  onClick={() => !isInputMode && setIsInputMode(true)}
+                >
+                  <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full border-2 border-neutral-300 dark:border-neutral-700 text-neutral-400 dark:text-neutral-600">
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                  </div>
                   <input
                     ref={inputRef}
                     type="text"
@@ -483,19 +550,82 @@ export default function GoalDetailPage() {
                     onKeyDown={handleKeyDown}
                     onFocus={() => setIsInputMode(true)}
                     onBlur={() => {
-                      if (!newActionName.trim() && window.innerWidth >= 768) {
+                      if (!newActionName.trim()) {
                         setIsInputMode(false);
                       }
                     }}
-                    placeholder="Type to add a new action..."
-                    className="flex-1 bg-transparent border-none outline-none text-neutral-900 dark:text-neutral-50 text-base placeholder:text-neutral-400 dark:placeholder:text-neutral-600 rounded px-1 -mx-1 p-0"
+                    placeholder={isInputMode ? "Type action name and press Enter..." : "Click to add a new action"}
+                    className="flex-1 bg-transparent border-none outline-none text-neutral-900 dark:text-neutral-50 text-base placeholder:text-neutral-400 dark:placeholder:text-neutral-600 rounded"
                     autoFocus={isInputMode}
                     tabIndex={0}
                   />
                 </div>
+                
+                {/* Add new action input - Desktop */}
+                <div 
+                  className={`hidden md:flex items-center gap-3 py-3 px-4 rounded-lg border-2 border-dashed transition-colors ${
+                    isInputMode 
+                      ? 'border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-900/10' 
+                      : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 cursor-pointer'
+                  }`}
+                  onClick={() => !isInputMode && setIsInputMode(true)}
+                >
+                  <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full border-2 border-neutral-300 dark:border-neutral-700 text-neutral-400 dark:text-neutral-600">
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                  </div>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={newActionName}
+                    onChange={(e) => setNewActionName(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => setIsInputMode(true)}
+                    onBlur={() => {
+                      if (!newActionName.trim()) {
+                        setIsInputMode(false);
+                      }
+                    }}
+                    placeholder="Type action name and press Enter..."
+                    className="flex-1 bg-transparent border-none outline-none text-neutral-900 dark:text-neutral-50 text-base placeholder:text-neutral-400 dark:placeholder:text-neutral-600 rounded"
+                    autoFocus={isInputMode}
+                    tabIndex={0}
+                  />
+                  {!isInputMode && (
+                    <div className="flex items-center gap-2 text-xs text-neutral-400 dark:text-neutral-600 whitespace-nowrap">
+                      <span>or press</span>
+                      <kbd className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-xs font-mono border border-neutral-200 dark:border-neutral-700">+</kbd>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
+
+          {/* Action Progress Tracker */}
+          {goalActions.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50 mb-4">
+                Progress Tracker
+              </h2>
+              <ActionProgressTracker
+                actions={goalActions}
+                goalCreatedAt={goal.createdAt}
+                onToggleCompletion={handleToggleActionCompletion}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -547,25 +677,4 @@ export default function GoalDetailPage() {
       />
     </main>
   );
-}
-
-// Helper function to format recurrence display
-function formatRecurrence(recurrence: ActionRecurrence): string {
-  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  
-  switch (recurrence.type) {
-    case 'daily':
-      return 'Daily';
-    case 'weekdays':
-      return 'Weekdays';
-    case 'weekly':
-      return `Every ${DAYS[recurrence.weeklyDay ?? 1]}`;
-    case 'custom':
-      if (recurrence.customDays && recurrence.customDays.length > 0) {
-        return recurrence.customDays.map(d => DAYS[d]).join(', ');
-      }
-      return 'Custom';
-    default:
-      return 'Daily';
-  }
 }

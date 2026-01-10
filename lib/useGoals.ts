@@ -181,6 +181,39 @@ export function useGoals() {
     );
   };
 
+  const toggleActionCompletion = (goalId: string, actionId: string, date: string, completed: boolean) => {
+    setGoals((prev) =>
+      prev.map((goal) =>
+        goal.id === goalId
+          ? {
+              ...goal,
+              actions: goal.actions.map((action) => {
+                if (action.id !== actionId) return action;
+                
+                // Initialize completions array if it doesn't exist
+                const completions = action.completions || [];
+                
+                // Find existing completion for this date
+                const existingIndex = completions.findIndex(c => c.date === date);
+                
+                let updatedCompletions;
+                if (existingIndex >= 0) {
+                  // Update existing completion
+                  updatedCompletions = [...completions];
+                  updatedCompletions[existingIndex] = { date, completed };
+                } else {
+                  // Add new completion
+                  updatedCompletions = [...completions, { date, completed }];
+                }
+                
+                return { ...action, completions: updatedCompletions };
+              }),
+            }
+          : goal
+      )
+    );
+  };
+
   return {
     goals,
     isLoading,
@@ -191,6 +224,7 @@ export function useGoals() {
     addAction,
     updateAction,
     deleteAction,
+    toggleActionCompletion,
   };
 }
 
