@@ -34,7 +34,7 @@ import { Progress } from '@/components/ui/progress';
 export default function GoalDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { goals, updateGoal, deleteGoal, addAction, updateAction, deleteAction, toggleActionCompletion, isLoading } = useGoals();
+  const { goals, updateGoal, deleteGoal, addAction, updateAction, deleteAction, isLoading } = useGoals();
   const [isEditMode, setIsEditMode] = useState(false);
   const [newActionName, setNewActionName] = useState('');
   const [isInputMode, setIsInputMode] = useState(false);
@@ -194,11 +194,6 @@ export default function GoalDetailPage() {
     }
   };
 
-  const handleToggleActionCompletion = (actionId: string, date: string, completed: boolean) => {
-    if (goal) {
-      toggleActionCompletion(goal.id, actionId, date, completed);
-    }
-  };
 
   const handleKeyDown = (e: React.KeyboardEvent, actionId?: string) => {
     if (e.key === 'Enter') {
@@ -250,7 +245,7 @@ export default function GoalDetailPage() {
 
   if (isLoading) {
     return (
-      <main className="flex min-h-screen flex-col bg-slate-50 font-sans text-neutral-900 dark:bg-black dark:text-white">
+      <main className="flex min-h-screen flex-col bg-background text-foreground">
         <Header title="Loading..." />
         <div className="flex-1 flex items-center justify-center pt-24 pb-20 md:pb-32">
           <div className="text-neutral-500 dark:text-neutral-400">Loading...</div>
@@ -261,7 +256,7 @@ export default function GoalDetailPage() {
 
   if (!goal) {
     return (
-      <main className="flex min-h-screen flex-col bg-slate-50 font-sans text-neutral-900 dark:bg-black dark:text-white">
+      <main className="flex min-h-screen flex-col bg-background text-foreground">
         <Header title="Goal not found" />
         <div className="flex-1 flex items-center justify-center pt-24 pb-20 md:pb-32">
           <div className="text-center">
@@ -281,7 +276,7 @@ export default function GoalDetailPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-slate-50 font-sans text-neutral-900 dark:bg-black dark:text-white">
+    <main className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Header with Title and Actions */}
       <div className="pointer-events-none">
         <div className="w-full max-w-3xl px-6 mx-auto pt-8">
@@ -671,7 +666,6 @@ export default function GoalDetailPage() {
               <ActionProgressTracker
                 actions={goalActions}
                 goalCreatedAt={goal.createdAt}
-                onToggleCompletion={handleToggleActionCompletion}
               />
             </div>
           )}
