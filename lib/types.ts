@@ -1,5 +1,12 @@
 export type GoalPeriod = 'weekly' | 'monthly' | 'quarterly';
-export type ActionRecurrence = 'daily' | 'weekly';
+
+export type ActionRecurrenceType = 'daily' | 'weekdays' | 'weekly' | 'custom';
+
+export interface ActionRecurrence {
+  type: ActionRecurrenceType;
+  weeklyDay?: number; // 0-6 (0 = Sunday, 1 = Monday, etc.) for 'weekly' type
+  customDays?: number[]; // Array of day numbers (0-6) for 'custom' type
+}
 
 export interface Action {
   id: string;

@@ -4,7 +4,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { GoalForm } from '@/components/GoalForm';
-import { Goal, Action } from '@/lib/types';
+import { ActionRecurrenceDialog } from '@/components/ActionRecurrenceDialog';
+import { Goal, Action, ActionRecurrence } from '@/lib/types';
 import { useGoals } from '@/lib/useGoals';
 import {
   AlertDialog,
@@ -24,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 
 export default function GoalDetailPage() {
   const params = useParams();
@@ -34,13 +36,37 @@ export default function GoalDetailPage() {
   const [isInputMode, setIsInputMode] = useState(false);
   const [editingActionId, setEditingActionId] = useState<string | null>(null);
   const [editingActionName, setEditingActionName] = useState('');
-  const [editingActionRecurrence, setEditingActionRecurrence] = useState<'daily' | 'weekly'>('daily');
+  const [editingActionRecurrence, setEditingActionRecurrence] = useState<ActionRecurrence>({ type: 'daily' });
+  const [actionToDelete, setActionToDelete] = useState<string | null>(null);
+  const [showRecurrenceDialog, setShowRecurrenceDialog] = useState(false);
+  const [pendingActionName, setPendingActionName] = useState('');
+  const [justUpdatedRecurrence, setJustUpdatedRecurrence] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const goal = goals.find((g) => g.id === params.id);
   
   // Backward compatibility: handle goals with old 'habits' property
   const goalActions: Action[] = goal?.actions ?? (goal as any)?.habits ?? [];
+
+  // Calculate progress based on target date
+  const calculateProgress = (): number => {
+    if (!goal?.targetDate) return 0;
+    
+    const now = new Date();
+    const created = new Date(goal.createdAt);
+    const target = new Date(goal.targetDate);
+    
+    const totalDuration = target.getTime() - created.getTime();
+    const elapsed = now.getTime() - created.getTime();
+    
+    if (totalDuration <= 0) return 100;
+    if (elapsed < 0) return 0;
+    
+    const progress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+    return Math.round(progress);
+  };
+
+  const progress = calculateProgress();
 
   const handleUpdate = (goalData: Omit<Goal, 'id' | 'createdAt' | 'actions'>) => {
     if (goal) {
@@ -58,11 +84,55 @@ export default function GoalDetailPage() {
 
   const handleAddAction = () => {
     if (newActionName.trim() && goal) {
+      // Show recurrence dialog instead of directly adding
+      setPendingActionName(newActionName.trim());
+      setShowRecurrenceDialog(true);
+    }
+  };
+
+  const handleRecurrenceConfirm = (recurrence: ActionRecurrence) => {
+    if (goal && editingActionId) {
+      // Find the current action to get its name as fallback
+      const currentAction = goalActions.find(a => a.id === editingActionId);
+      if (!currentAction) return;
+      
+      // Update the recurrence in the editing state FIRST (for immediate UI update)
+      setEditingActionRecurrence(recurrence);
+      
+      // Update the action with current editing name (or existing name if not changed) and new recurrence
+      const nameToUse = editingActionName.trim() || currentAction.name;
+      
+      // Update the action immediately with the new recurrence
+      // We pass the recurrence object directly to ensure it's saved correctly
+      const updatedAction: Partial<Action> = {
+        name: nameToUse,
+        recurrence: { ...recurrence }, // Create a new object to ensure it's a clean copy
+      };
+      
+      updateAction(goal.id, editingActionId, updatedAction);
+      
+      // Set flag to prevent handleSaveEditAction from overwriting the recurrence
+      setJustUpdatedRecurrence(true);
+      // Clear the flag after a short delay to allow any pending blur events to use the correct value
+      setTimeout(() => {
+        setJustUpdatedRecurrence(false);
+      }, 100);
+      
+      // Also update editingActionName if it was empty, so handleSaveEditAction uses correct value
+      if (!editingActionName.trim()) {
+        setEditingActionName(currentAction.name);
+      }
+      
+      // Keep edit mode open so user can continue editing if needed
+      // They can save by clicking away or pressing Enter
+    } else if (goal && pendingActionName) {
+      // Otherwise, add a new action
       addAction(goal.id, {
-        name: newActionName.trim(),
-        recurrence: 'daily',
+        name: pendingActionName,
+        recurrence,
       });
       setNewActionName('');
+      setPendingActionName('');
       setTimeout(() => {
         inputRef.current?.focus();
       }, 0);
@@ -76,19 +146,40 @@ export default function GoalDetailPage() {
   };
 
   const handleSaveEditAction = () => {
-    if (editingActionId && goal && editingActionName.trim()) {
-      updateAction(goal.id, editingActionId, {
-        name: editingActionName.trim(),
-        recurrence: editingActionRecurrence,
-      });
-      setEditingActionId(null);
-      setEditingActionName('');
+    if (editingActionId && goal) {
+      // Get current action to get the name if editingActionName is empty
+      const currentAction = goalActions.find(a => a.id === editingActionId);
+      if (!currentAction) return;
+      
+      const nameToUse = editingActionName.trim() || currentAction.name;
+      
+      if (nameToUse) {
+        // If recurrence was just updated via dialog, use the actual action's recurrence
+        // (which was already updated) instead of the potentially stale editing state
+        const recurrenceToUse = justUpdatedRecurrence 
+          ? currentAction.recurrence 
+          : editingActionRecurrence;
+        
+        updateAction(goal.id, editingActionId, {
+          name: nameToUse,
+          recurrence: recurrenceToUse,
+        });
+        setEditingActionId(null);
+        setEditingActionName('');
+        setEditingActionRecurrence({ type: 'daily' });
+        setJustUpdatedRecurrence(false);
+      }
     }
   };
 
-  const handleDeleteAction = (actionId: string) => {
-    if (goal && window.confirm('Are you sure you want to delete this action?')) {
-      deleteAction(goal.id, actionId);
+  const handleDeleteActionClick = (actionId: string) => {
+    setActionToDelete(actionId);
+  };
+
+  const handleConfirmDeleteAction = () => {
+    if (goal && actionToDelete) {
+      deleteAction(goal.id, actionToDelete);
+      setActionToDelete(null);
     }
   };
 
@@ -234,6 +325,25 @@ export default function GoalDetailPage() {
       <div className="flex-1 flex items-start justify-center pt-24 pb-20 md:pb-32">
         <div className="w-full max-w-3xl mx-auto px-6 py-8">
 
+          {/* Progress Bar */}
+          {goal.targetDate && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  Progress
+                </span>
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                  {progress}%
+                </span>
+              </div>
+              <Progress 
+                value={progress}
+                className="h-2 bg-neutral-200 dark:bg-neutral-800"
+                indicatorClassName="bg-green-500 dark:bg-green-400"
+              />
+            </div>
+          )}
+
           {/* Target Date */}
           {goal.targetDate && (
             <div className="mb-8 flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
@@ -282,30 +392,43 @@ export default function GoalDetailPage() {
                   >
                     {editingActionId === action.id ? (
                       <>
-                        <div className="flex-shrink-0 w-5 h-5" />
                         <input
                           type="text"
                           value={editingActionName}
                           onChange={(e) => setEditingActionName(e.target.value)}
-                          onBlur={handleSaveEditAction}
+                          onBlur={(e) => {
+                            // Don't save if clicking on the recurrence button
+                            const relatedTarget = e.relatedTarget as HTMLElement;
+                            if (relatedTarget && relatedTarget.closest('button[data-recurrence-button]')) {
+                              return;
+                            }
+                            handleSaveEditAction();
+                          }}
                           onKeyDown={(e) => handleKeyDown(e, action.id)}
                           className="flex-1 bg-transparent border-none outline-none text-neutral-900 dark:text-neutral-50 text-base focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1 -mx-1 p-0"
                           autoFocus
                           tabIndex={0}
                         />
-                        <select
-                          value={editingActionRecurrence}
-                          onChange={(e) => setEditingActionRecurrence(e.target.value as 'daily' | 'weekly')}
-                          className="text-sm bg-transparent border border-neutral-300 dark:border-neutral-700 rounded px-2 py-1 text-neutral-900 dark:text-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        <button
+                          data-recurrence-button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            // Open recurrence dialog for editing - keep edit mode active
+                            setShowRecurrenceDialog(true);
+                          }}
+                          onMouseDown={(e) => {
+                            // Prevent blur on the input
+                            e.preventDefault();
+                          }}
+                          className="text-xs px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
                           tabIndex={0}
                         >
-                          <option value="daily">Daily</option>
-                          <option value="weekly">Weekly</option>
-                        </select>
+                          {formatRecurrence(editingActionRecurrence)}
+                        </button>
                       </>
                     ) : (
                       <>
-                        <div className="flex-shrink-0 w-5 h-5 rounded border-2 border-neutral-300 dark:border-neutral-700" />
                         <button
                           onClick={() => handleStartEditAction(action)}
                           onKeyDown={(e) => {
@@ -314,7 +437,7 @@ export default function GoalDetailPage() {
                               handleStartEditAction(action);
                             } else if (e.key === 'Delete' || e.key === 'Backspace') {
                               e.preventDefault();
-                              handleDeleteAction(action.id);
+                              handleDeleteActionClick(action.id);
                             }
                           }}
                           tabIndex={0}
@@ -322,11 +445,11 @@ export default function GoalDetailPage() {
                         >
                           {action.name}
                           <span className="ml-2 text-xs text-neutral-500 dark:text-neutral-400">
-                            ({action.recurrence})
+                            ({formatRecurrence(action.recurrence)})
                           </span>
                         </button>
                         <button
-                          onClick={() => handleDeleteAction(action.id)}
+                          onClick={() => handleDeleteActionClick(action.id)}
                           tabIndex={-1}
                           className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded focus:opacity-100"
                           aria-label="Delete action"
@@ -352,7 +475,6 @@ export default function GoalDetailPage() {
 
                 {/* Add new action input */}
                 <div className={`flex items-center gap-3 py-1.5 px-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors ${isInputMode ? 'md:flex' : 'md:hidden'}`}>
-                  <div className="flex-shrink-0 w-5 h-5 rounded border-2 border-neutral-300 dark:border-neutral-700" />
                   <input
                     ref={inputRef}
                     type="text"
@@ -384,6 +506,66 @@ export default function GoalDetailPage() {
         onOpenChange={setIsEditMode}
         onSubmit={handleUpdate}
       />
+
+      {/* Delete Action Confirmation Dialog */}
+      <AlertDialog open={!!actionToDelete} onOpenChange={(open) => !open && setActionToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Action</AlertDialogTitle>
+            <AlertDialogDescription>
+              {actionToDelete && goal && (
+                <>
+                  Are you sure you want to delete "{goalActions.find(a => a.id === actionToDelete)?.name}"? This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setActionToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteAction}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Recurrence Selection Dialog */}
+      <ActionRecurrenceDialog
+        open={showRecurrenceDialog}
+        onOpenChange={(open) => {
+          setShowRecurrenceDialog(open);
+          // No need to sync here - handleRecurrenceConfirm already updates both state and action
+        }}
+        onConfirm={handleRecurrenceConfirm}
+        actionName={pendingActionName || editingActionName}
+        initialRecurrence={editingActionId ? editingActionRecurrence : undefined}
+      />
     </main>
   );
+}
+
+// Helper function to format recurrence display
+function formatRecurrence(recurrence: ActionRecurrence): string {
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  
+  switch (recurrence.type) {
+    case 'daily':
+      return 'Daily';
+    case 'weekdays':
+      return 'Weekdays';
+    case 'weekly':
+      return `Every ${DAYS[recurrence.weeklyDay ?? 1]}`;
+    case 'custom':
+      if (recurrence.customDays && recurrence.customDays.length > 0) {
+        return recurrence.customDays.map(d => DAYS[d]).join(', ');
+      }
+      return 'Custom';
+    default:
+      return 'Daily';
+  }
 }

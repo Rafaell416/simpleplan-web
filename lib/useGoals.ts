@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Goal, Action } from './types';
+import { Goal, Action, ActionRecurrence } from './types';
 
 const STORAGE_KEY = 'simpleplan-goals';
 
@@ -20,7 +20,7 @@ export function useGoals() {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsedGoals: any[] = JSON.parse(stored);
-        // Migrate old goals with 'habits' to 'actions'
+        // Migrate old goals with 'habits' to 'actions' and old recurrence format
         const migratedGoals: Goal[] = parsedGoals.map((goal: any) => {
           if (goal.habits && !goal.actions) {
             const { habits, ...rest } = goal;
@@ -28,6 +28,26 @@ export function useGoals() {
               ...rest,
               actions: habits,
             } as Goal;
+          }
+          // Migrate old recurrence format (string) to new format (object)
+          if (goal.actions) {
+            goal.actions = goal.actions.map((action: any) => {
+              if (typeof action.recurrence === 'string') {
+                const oldRecurrence = action.recurrence;
+                let newRecurrence: ActionRecurrence;
+                if (oldRecurrence === 'daily') {
+                  newRecurrence = { type: 'daily' };
+                } else if (oldRecurrence === 'weekly') {
+                  // Default to Monday for old weekly actions
+                  newRecurrence = { type: 'weekly', weeklyDay: 1 };
+                } else {
+                  // Default to daily if unknown
+                  newRecurrence = { type: 'daily' };
+                }
+                return { ...action, recurrence: newRecurrence };
+              }
+              return action;
+            });
           }
           return goal as Goal;
         });
@@ -52,7 +72,7 @@ export function useGoals() {
                 id: action1Id,
                 goalId: goal1Id,
                 name: 'Read 10 pages',
-                recurrence: 'daily',
+                recurrence: { type: 'daily' },
                 createdAt: new Date().toISOString(),
               },
             ],
@@ -68,7 +88,7 @@ export function useGoals() {
                 id: action2Id,
                 goalId: goal2Id,
                 name: 'Run 30 minutes',
-                recurrence: 'weekly',
+                recurrence: { type: 'weekly', weeklyDay: 1 }, // Monday
                 createdAt: new Date().toISOString(),
               }
             ],

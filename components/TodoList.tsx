@@ -1,6 +1,18 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Todo {
   id: string;
@@ -26,6 +38,7 @@ export function TodoList() {
   const [isInputMode, setIsInputMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
+  const [todoToDelete, setTodoToDelete] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const toggleTodo = (id: string) => {
@@ -81,11 +94,16 @@ export function TodoList() {
 
   const deleteTodo = (id: string) => {
     setTodos(todos.filter(todo => todo.id !== id));
+    setTodoToDelete(null);
   };
 
-  const handleDeleteWithConfirmation = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this task?')) {
-      deleteTodo(id);
+  const handleDeleteClick = (id: string) => {
+    setTodoToDelete(id);
+  };
+
+  const handleConfirmDelete = () => {
+    if (todoToDelete) {
+      deleteTodo(todoToDelete);
     }
   };
 
@@ -162,35 +180,55 @@ export function TodoList() {
         </div>
       ) : (
         <div className="space-y-1">
-          {sortedTodos.map((todo) => (
-          <div
-            key={todo.id}
-            className="group flex items-center gap-3 py-1.5 px-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
-          >
-            <button
-              onClick={() => toggleTodo(todo.id)}
-              tabIndex={-1}
-              className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 ${
-                todo.completed
-                  ? 'bg-blue-600 dark:bg-blue-500 border-blue-600 dark:border-blue-500 focus:ring-blue-400 dark:focus:ring-blue-600'
-                  : 'border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-600 focus:ring-neutral-400 dark:focus:ring-neutral-600'
-              }`}
-              aria-label={todo.completed ? 'Mark as incomplete' : 'Mark as complete'}
+          <AnimatePresence mode="popLayout">
+            {sortedTodos.map((todo) => (
+            <motion.div
+              key={todo.id}
+              layout
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95, height: 0, marginTop: 0, marginBottom: 0 }}
+              transition={{
+                layout: { 
+                  duration: 0.4, 
+                  ease: [0.32, 0.72, 0, 1]
+                },
+                opacity: { duration: 0.2 },
+                scale: { duration: 0.2 },
+                height: { duration: 0.3 }
+              }}
+              onKeyDown={(e) => {
+                // Only handle keyboard if not editing
+                if (editingId !== todo.id) {
+                  // Enter or Space to toggle completion
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleTodo(todo.id);
+                  }
+                  // E key to edit
+                  else if (e.key === 'e' || e.key === 'E') {
+                    e.preventDefault();
+                    startEditing(todo);
+                  }
+                  // Delete key to delete with confirmation
+                  else if (e.key === 'Delete' || e.key === 'Backspace') {
+                    e.preventDefault();
+                    handleDeleteClick(todo.id);
+                  }
+                }
+              }}
+              tabIndex={editingId === todo.id ? -1 : 0}
+              role="listitem"
+              className="group flex items-center gap-3 py-1.5 px-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:bg-neutral-50 dark:focus:bg-neutral-900/50 cursor-pointer"
             >
-              {todo.completed && (
-                <svg
-                  className="w-3.5 h-3.5 text-white"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
-            </button>
+            <Checkbox
+              checked={todo.completed}
+              onCheckedChange={() => toggleTodo(todo.id)}
+              onClick={(e) => e.stopPropagation()}
+              tabIndex={-1}
+              aria-label={todo.completed ? 'Mark as incomplete' : 'Mark as complete'}
+              className="cursor-pointer size-5 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 dark:data-[state=checked]:bg-blue-500 dark:data-[state=checked]:border-blue-500 pointer-events-auto"
+            />
             
             {editingId === todo.id ? (
               <input
@@ -205,26 +243,13 @@ export function TodoList() {
               />
             ) : (
               <button
-                onClick={() => startEditing(todo)}
-                onKeyDown={(e) => {
-                  // E key to edit
-                  if (e.key === 'e' || e.key === 'E') {
-                    e.preventDefault();
-                    startEditing(todo);
-                  }
-                  // Enter key to toggle completion
-                  else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    toggleTodo(todo.id);
-                  }
-                  // Delete key to delete with confirmation
-                  else if (e.key === 'Delete' || e.key === 'Backspace') {
-                    e.preventDefault();
-                    handleDeleteWithConfirmation(todo.id);
-                  }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEditing(todo);
                 }}
-                tabIndex={0}
-                className={`flex-1 text-left text-base text-neutral-900 dark:text-neutral-50 transition-opacity focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1 -mx-1 ${
+                tabIndex={-1}
+                type="button"
+                className={`flex-1 text-left text-base text-neutral-900 dark:text-neutral-50 transition-opacity cursor-pointer ${
                   todo.completed
                     ? 'opacity-50 line-through'
                     : 'opacity-100'
@@ -235,7 +260,10 @@ export function TodoList() {
             )}
             
             <button
-              onClick={() => deleteTodo(todo.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteClick(todo.id);
+              }}
               tabIndex={-1}
               className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded focus:opacity-100"
               aria-label="Delete task"
@@ -254,13 +282,14 @@ export function TodoList() {
                 />
               </svg>
             </button>
-          </div>
-        ))}
+            </motion.div>
+          ))}
+          </AnimatePresence>
         
-        {/* Add new todo - always visible on mobile, conditional on desktop */}
-        <div className={`flex items-center gap-3 py-1.5 px-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors ${isInputMode ? 'md:flex' : 'md:hidden'}`}>
-          <div className="flex-shrink-0 w-5 h-5 rounded border-2 border-neutral-300 dark:border-neutral-700" />
-          <input
+                {/* Add new todo - always visible on mobile, conditional on desktop */}
+                <div className={`flex items-center gap-3 py-1.5 px-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors ${isInputMode ? 'md:flex' : 'md:hidden'}`}>
+                  <div className="flex-shrink-0 w-4 h-4" />
+                  <input
             ref={inputRef}
             type="text"
             value={newTodo}
@@ -281,6 +310,33 @@ export function TodoList() {
         </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!todoToDelete} onOpenChange={(open) => !open && setTodoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+            <AlertDialogDescription>
+              {todoToDelete && (
+                <>
+                  Are you sure you want to delete "{todos.find(t => t.id === todoToDelete)?.text}"? This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTodoToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

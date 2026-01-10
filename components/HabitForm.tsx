@@ -10,7 +10,7 @@ interface HabitFormProps {
 
 export function HabitForm({ onClose, onSubmit }: HabitFormProps) {
   const [name, setName] = useState('');
-  const [recurrence, setRecurrence] = useState<ActionRecurrence>('daily');
+  const [recurrence, setRecurrence] = useState<ActionRecurrence>({ type: 'daily' });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +20,7 @@ export function HabitForm({ onClose, onSubmit }: HabitFormProps) {
         recurrence,
       });
       setName('');
-      setRecurrence('daily');
+      setRecurrence({ type: 'daily' });
     }
   };
 
@@ -92,12 +92,25 @@ export function HabitForm({ onClose, onSubmit }: HabitFormProps) {
               </label>
               <select
                 id="action-recurrence"
-                value={recurrence}
-                onChange={(e) => setRecurrence(e.target.value as ActionRecurrence)}
+                value={recur.type}
+                onChange={(e) => {
+                  const type = e.target.value as ActionRecurrence['type'];
+                  if (type === 'weekly') {
+                    setRecurrence({ type: 'weekly', weeklyDay: new Date().getDay() });
+                  } else if (type === 'weekdays') {
+                    setRecurrence({ type: 'weekdays' });
+                  } else if (type === 'custom') {
+                    setRecurrence({ type: 'custom', customDays: [] });
+                  } else {
+                    setRecurrence({ type: 'daily' });
+                  }
+                }}
                 className="w-full px-3 py-2 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="daily">Daily</option>
+                <option value="weekdays">Weekdays</option>
                 <option value="weekly">Weekly</option>
+                <option value="custom">Custom</option>
               </select>
             </div>
 
