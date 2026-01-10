@@ -14,25 +14,23 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 
-interface Todo {
+export interface Todo {
   id: string;
   text: string;
   completed: boolean;
+  // Optional metadata for goal actions
+  actionId?: string;
+  goalId?: string;
+  goalTitle?: string;
 }
 
-export function TodoList() {
-  const [todos, setTodos] = useState<Todo[]>([
-    { id: '1', text: 'Work on copilotIQ', completed: true },
-    { id: '2', text: 'Chat gpt therapy', completed: false },
-    { id: '3', text: 'Cortex fu', completed: false },
-    { id: '4', text: 'Work on simple plan web', completed: false },
-    { id: '5', text: 'Time with God', completed: false },
-    { id: '6', text: 'Duolingo', completed: false },
-    { id: '7', text: 'Continue reading nutrition app document', completed: false },
-    { id: '8', text: 'Continue working on tripby spreadsheet', completed: false },
-    { id: '9', text: 'Call Juan Pablo Apriori', completed: false },
-    { id: '10', text: 'Stretch and mobility', completed: false },
-  ]);
+interface TodoListProps {
+  todos: Todo[];
+  onTodosChange: (todos: Todo[]) => void;
+  selectedDate?: Date;
+}
+
+export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: TodoListProps) {
 
   const [newTodo, setNewTodo] = useState('');
   const [isInputMode, setIsInputMode] = useState(false);
@@ -42,14 +40,15 @@ export function TodoList() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const toggleTodo = (id: string) => {
-    setTodos(todos.map(todo => 
+    const updatedTodos = todos.map(todo => 
       todo.id === id ? { ...todo, completed: !todo.completed } : todo
     ).sort((a, b) => {
       // Sort: completed items first, then incomplete items
       if (a.completed && !b.completed) return -1;
       if (!a.completed && b.completed) return 1;
       return 0;
-    }));
+    });
+    onTodosChange(updatedTodos);
   };
 
   const addTodo = () => {
@@ -60,11 +59,12 @@ export function TodoList() {
         completed: false,
       }];
       // Sort: completed items first
-      setTodos(newTodos.sort((a, b) => {
+      const sortedTodos = newTodos.sort((a, b) => {
         if (a.completed && !b.completed) return -1;
         if (!a.completed && b.completed) return 1;
         return 0;
-      }));
+      });
+      onTodosChange(sortedTodos);
       setNewTodo('');
       // Stay in input mode, focus the input again
       setTimeout(() => {
@@ -74,6 +74,8 @@ export function TodoList() {
   };
 
   const startEditing = (todo: Todo) => {
+    // Don't allow editing action todos
+    if (todo.actionId) return;
     setEditingId(todo.id);
     setEditingText(todo.text);
   };
@@ -83,17 +85,19 @@ export function TodoList() {
       todo.id === id ? { ...todo, text: editingText.trim() || todo.text } : todo
     );
     // Sort: completed items first
-    setTodos(updatedTodos.sort((a, b) => {
+    const sortedTodos = updatedTodos.sort((a, b) => {
       if (a.completed && !b.completed) return -1;
       if (!a.completed && b.completed) return 1;
       return 0;
-    }));
+    });
+    onTodosChange(sortedTodos);
     setEditingId(null);
     setEditingText('');
   };
 
   const deleteTodo = (id: string) => {
-    setTodos(todos.filter(todo => todo.id !== id));
+    const filteredTodos = todos.filter(todo => todo.id !== id);
+    onTodosChange(filteredTodos);
     setTodoToDelete(null);
   };
 
@@ -159,8 +163,8 @@ export function TodoList() {
     return 0;
   });
 
-  // Get day of the week
-  const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  // Get day of the week for the selected date
+  const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
 
   return (
     <div className="w-full">
@@ -205,13 +209,13 @@ export function TodoList() {
                     e.preventDefault();
                     toggleTodo(todo.id);
                   }
-                  // E key to edit
-                  else if (e.key === 'e' || e.key === 'E') {
+                  // E key to edit (only for regular todos)
+                  else if ((e.key === 'e' || e.key === 'E') && !todo.actionId) {
                     e.preventDefault();
                     startEditing(todo);
                   }
-                  // Delete key to delete with confirmation
-                  else if (e.key === 'Delete' || e.key === 'Backspace') {
+                  // Delete key to delete with confirmation (only for regular todos)
+                  else if ((e.key === 'Delete' || e.key === 'Backspace') && !todo.actionId) {
                     e.preventDefault();
                     handleDeleteClick(todo.id);
                   }
@@ -242,46 +246,58 @@ export function TodoList() {
                 tabIndex={0}
               />
             ) : (
+              <div className="flex-1 flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!todo.actionId) {
+                      startEditing(todo);
+                    }
+                  }}
+                  tabIndex={todo.actionId ? -1 : -1}
+                  type="button"
+                  disabled={!!todo.actionId}
+                  className={`flex-1 text-left text-base text-neutral-900 dark:text-neutral-50 transition-opacity ${
+                    todo.completed
+                      ? 'opacity-50 line-through'
+                      : 'opacity-100'
+                  } ${todo.actionId ? 'cursor-default' : 'cursor-pointer'}`}
+                >
+                  {todo.text}
+                </button>
+                {todo.actionId && todo.goalTitle && (
+                  <span className="text-xs text-muted-foreground px-2 py-0.5 rounded bg-muted">
+                    {todo.goalTitle}
+                  </span>
+                )}
+              </div>
+            )}
+            
+            {!todo.actionId && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  startEditing(todo);
+                  handleDeleteClick(todo.id);
                 }}
                 tabIndex={-1}
-                type="button"
-                className={`flex-1 text-left text-base text-neutral-900 dark:text-neutral-50 transition-opacity cursor-pointer ${
-                  todo.completed
-                    ? 'opacity-50 line-through'
-                    : 'opacity-100'
-                }`}
+                className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded focus:opacity-100"
+                aria-label="Delete task"
               >
-                {todo.text}
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
               </button>
             )}
-            
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteClick(todo.id);
-              }}
-              tabIndex={-1}
-              className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded focus:opacity-100"
-              aria-label="Delete task"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
             </motion.div>
           ))}
           </AnimatePresence>

@@ -4,6 +4,7 @@ import "./globals.css";
 import { DockBar } from "@/components/DockBar";
 import { TabBar } from "@/components/TabBar";
 import { SettingsProvider } from "@/components/SettingsProvider";
+import { PreventZoom } from "@/components/PreventZoom";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,6 +40,14 @@ export const metadata: Metadata = {
   description: "Todo list for your life",
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -49,6 +58,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${roboto.variable} ${openSans.variable} antialiased`}
       >
+        <PreventZoom />
         <SettingsProvider>
           <main className="relative min-h-screen bg-background text-foreground">
             {children}

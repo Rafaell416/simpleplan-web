@@ -33,8 +33,17 @@ export function TabBar() {
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 flex md:hidden">
-      <div className="w-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm border-t border-neutral-200 dark:border-neutral-800">
+    <div 
+      data-tabbar
+      className="fixed inset-x-0 bottom-0 z-[100] flex md:hidden pointer-events-none" 
+      style={{ 
+        position: 'fixed',
+        WebkitTransform: 'translateZ(0)',
+        transform: 'translateZ(0)',
+        willChange: 'transform'
+      }}
+    >
+      <div className="w-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm border-t border-neutral-200 dark:border-neutral-800 pointer-events-auto" style={{ paddingBottom: 'max(0px, env(safe-area-inset-bottom))' }}>
         <div className="flex items-center justify-around h-16 px-2">
           {items.map((item) => {
             const Icon = item.icon;

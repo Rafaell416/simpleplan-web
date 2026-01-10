@@ -35,10 +35,10 @@ export function GoalForm({ goal, open, onOpenChange, onSubmit }: GoalFormProps) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (title.trim()) {
+    if (title.trim() && targetDate.trim()) {
       onSubmit({
         title: title.trim(),
-        targetDate: targetDate || undefined,
+        targetDate: targetDate.trim(),
       });
       setTitle('');
       setTargetDate('');
@@ -79,7 +79,7 @@ export function GoalForm({ goal, open, onOpenChange, onSubmit }: GoalFormProps) 
                 htmlFor="goal-target-date"
                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               >
-                Target Date (Optional)
+                Target Date <span className="text-red-500">*</span>
               </label>
               <input
                 id="goal-target-date"
@@ -87,6 +87,8 @@ export function GoalForm({ goal, open, onOpenChange, onSubmit }: GoalFormProps) 
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                required
+                min={goal ? undefined : new Date().toISOString().split('T')[0]}
               />
             </div>
           </div>
@@ -97,7 +99,10 @@ export function GoalForm({ goal, open, onOpenChange, onSubmit }: GoalFormProps) 
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit">
+            <Button 
+              type="submit"
+              disabled={!title.trim() || !targetDate.trim()}
+            >
               {goal ? 'Update' : 'Create'}
             </Button>
           </DialogFooter>

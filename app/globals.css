@@ -119,7 +119,41 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    /* Prevent zooming on mobile Safari */
+    touch-action: pan-x pan-y;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    /* Fix iOS Safari fixed positioning */
+    position: relative;
+    height: 100%;
+    overflow-x: hidden;
+  }
   body {
     @apply bg-background text-foreground;
+    /* Hide scrollbar while maintaining scroll functionality */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+    /* Prevent zooming on mobile Safari */
+    touch-action: pan-x pan-y;
+    /* Fix iOS Safari fixed positioning issues */
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+  }
+  
+  /* Hide scrollbar for all browsers */
+  *::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+  
+  /* Ensure fixed TabBar stays fixed on iOS Safari */
+  @supports (-webkit-touch-callout: none) {
+    /* iOS Safari specific fixes */
+    [data-tabbar] {
+      position: fixed !important;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+      will-change: transform;
+    }
   }
 }
