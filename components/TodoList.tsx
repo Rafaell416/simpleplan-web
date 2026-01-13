@@ -167,8 +167,8 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: To
   const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
 
   return (
-    <div className="w-full">
-      <h2 className="text-2xl font-semibold mb-8 text-neutral-900 dark:text-neutral-50">
+    <div className="w-full max-w-full">
+      <h2 className="text-2xl font-semibold mb-8 text-neutral-900 dark:text-neutral-50 px-2">
         {dayOfWeek}
       </h2>
       {todos.length === 0 && !isInputMode ? (
@@ -183,7 +183,7 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: To
           </div>
         </div>
       ) : (
-        <div className="space-y-1">
+        <div className="space-y-1 px-2">
           <AnimatePresence mode="popLayout">
             {sortedTodos.map((todo) => (
             <motion.div
@@ -246,7 +246,7 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: To
                 tabIndex={0}
               />
             ) : (
-              <div className="flex-1 flex items-center gap-2">
+              <div className="flex-1 flex items-center gap-2 min-w-0">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -257,7 +257,7 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: To
                   tabIndex={todo.actionId ? -1 : -1}
                   type="button"
                   disabled={!!todo.actionId}
-                  className={`flex-1 text-left text-base text-neutral-900 dark:text-neutral-50 transition-opacity ${
+                  className={`flex-1 text-left text-base text-neutral-900 dark:text-neutral-50 transition-opacity min-w-0 break-words ${
                     todo.completed
                       ? 'opacity-50 line-through'
                       : 'opacity-100'

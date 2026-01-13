@@ -187,9 +187,28 @@ export default function HomePage() {
           setSelectedDate(newDate);
         } else if (e.key === 'ArrowDown') {
           e.preventDefault();
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const maxDate = new Date(today);
+          maxDate.setDate(today.getDate() + 7); // 7 days from today
+          
+          const selected = new Date(selectedDate);
+          selected.setHours(0, 0, 0, 0);
+          
+          // Don't allow navigation beyond 7 days from today
+          if (selected.getTime() >= maxDate.getTime()) {
+            return;
+          }
+          
           const newDate = new Date(selectedDate);
           newDate.setDate(newDate.getDate() + 1);
-          setSelectedDate(newDate);
+          
+          // Ensure we don't exceed the 7-day limit
+          const newDateNormalized = new Date(newDate);
+          newDateNormalized.setHours(0, 0, 0, 0);
+          if (newDateNormalized.getTime() <= maxDate.getTime()) {
+            setSelectedDate(newDate);
+          }
         }
       }
     };
@@ -227,23 +246,35 @@ export default function HomePage() {
 
       <div className="flex-1 flex items-center justify-center pt-16 md:pt-24 pb-20 md:pb-32 relative">
         <div className="w-full max-w-3xl mx-auto px-4 md:px-6 py-4 md:py-8">
-          <div className="flex items-center gap-4 md:gap-6">
-            {/* Todo List with smooth vertical pagination */}
-            <div className="flex-1 min-w-0 relative">
-              <AnimatePresence mode="wait" initial={false}>
+          <div className="flex items-start gap-4 md:gap-6">
+            {/* Todo List with swipe animation */}
+            <div className="flex-1 relative bg-background" style={{ height: 'calc(100vh - 200px)', minHeight: '600px', overflow: 'hidden' }}>
+              <AnimatePresence initial={false} custom={navigationDirection}>
                 <motion.div
                   key={formatDate(selectedDate)}
+                  custom={navigationDirection}
                   initial={{ 
-                    opacity: 0, 
-                    y: navigationDirection === 'down' ? 40 : -40 
+                    y: navigationDirection === 'down' ? '100%' : '-100%',
+                    opacity: 0
                   }}
-                  animate={{ opacity: 1, y: 0 }}
+                  animate={{ 
+                    y: 0,
+                    opacity: 1
+                  }}
                   exit={{ 
-                    opacity: 0, 
-                    y: navigationDirection === 'down' ? -40 : 40 
+                    y: navigationDirection === 'down' ? '-100%' : '100%',
+                    opacity: 0
                   }}
-                  transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
-                  className="w-full"
+                  transition={{ 
+                    duration: 0.5, 
+                    ease: [0.4, 0, 0.2, 1],
+                    opacity: { 
+                      duration: 0.25,
+                      ease: 'easeOut'
+                    }
+                  }}
+                  className="w-full absolute inset-0 bg-background overflow-y-auto"
+                  style={{ padding: '4px' }}
                 >
                   <TodoList 
                     todos={allTodos} 

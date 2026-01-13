@@ -49,9 +49,41 @@ export function DateNavigator({ selectedDate, onDateChange, className = '' }: Da
   };
 
   const goToNextDay = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const maxDate = new Date(today);
+    maxDate.setDate(today.getDate() + 7); // 7 days from today
+    
+    const selected = new Date(selectedDate);
+    selected.setHours(0, 0, 0, 0);
+    
+    // Don't allow navigation beyond 7 days from today
+    if (selected.getTime() >= maxDate.getTime()) {
+      return;
+    }
+    
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + 1);
-    onDateChange(newDate);
+    
+    // Ensure we don't exceed the 7-day limit
+    const newDateNormalized = new Date(newDate);
+    newDateNormalized.setHours(0, 0, 0, 0);
+    if (newDateNormalized.getTime() <= maxDate.getTime()) {
+      onDateChange(newDate);
+    }
+  };
+  
+  // Check if we can navigate forward (not more than 7 days from today)
+  const canNavigateForward = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const maxDate = new Date(today);
+    maxDate.setDate(today.getDate() + 7);
+    
+    const selected = new Date(selectedDate);
+    selected.setHours(0, 0, 0, 0);
+    
+    return selected.getTime() < maxDate.getTime();
   };
 
   return (
@@ -91,10 +123,19 @@ export function DateNavigator({ selectedDate, onDateChange, className = '' }: Da
       {/* Down arrow for next day */}
       <button
         onClick={goToNextDay}
-        className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+        disabled={!canNavigateForward()}
+        className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+          canNavigateForward()
+            ? 'hover:bg-muted'
+            : 'opacity-50 cursor-not-allowed'
+        }`}
         aria-label="Next day"
       >
-        <ChevronDown className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
+        <ChevronDown className={`w-5 h-5 transition-colors ${
+          canNavigateForward()
+            ? 'text-muted-foreground hover:text-foreground'
+            : 'text-muted-foreground/50'
+        }`} />
       </button>
 
       {/* Quick jump to today button */}

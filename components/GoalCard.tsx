@@ -40,7 +40,7 @@ export function GoalCard({ goal }: GoalCardProps) {
   return (
     <div
       onClick={() => router.push(`/goals/${goal.id}`)}
-      className="group relative rounded-lg p-4 bg-white dark:bg-neutral-900/60 transition-all duration-200 hover:bg-neutral-50 dark:hover:bg-neutral-900/80 cursor-pointer h-full flex flex-col min-h-[180px]"
+      className="group relative rounded-lg p-4 bg-white dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 transition-all duration-200 hover:bg-neutral-50 dark:hover:bg-neutral-900/80 cursor-pointer h-full flex flex-col min-h-[180px]"
     >
       {/* Icon and Title Section */}
       <div className="mb-3 flex-1">

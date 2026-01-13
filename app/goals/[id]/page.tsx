@@ -666,6 +666,7 @@ export default function GoalDetailPage() {
               <ActionProgressTracker
                 actions={goalActions}
                 goalCreatedAt={goal.createdAt}
+                targetDate={goal.targetDate}
               />
             </div>
           )}

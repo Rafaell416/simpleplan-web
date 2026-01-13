@@ -10,6 +10,7 @@ import { motion } from 'framer-motion';
 interface ActionProgressTrackerProps {
   actions: Action[];
   goalCreatedAt: string;
+  targetDate?: string;
   onToggleCompletion?: (actionId: string, date: string, completed: boolean) => void;
 }
 
@@ -68,12 +69,9 @@ function getRelevantDates(): Date[] {
   return dates;
 }
 
-// Get dates for a full month (GitHub-style calendar)
-function getMonthDates(): Date[] {
+// Get dates for a full month (Duolingo-style calendar)
+function getMonthDates(year: number, month: number): Date[] {
   const dates: Date[] = [];
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
   
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -97,18 +95,18 @@ function getMonthDates(): Date[] {
   return dates;
 }
 
-// Calculate completion intensity for a date (0-4 scale like GitHub)
-function getCompletionIntensity(
+// Calculate completion status for a date (GitHub-style)
+function getCompletionStatus(
   date: Date, 
   actions: Action[], 
   goalCreatedAt: string
-): { count: number; intensity: number } {
+): { count: number; total: number; completed: boolean; percentage: number } {
   const dateStr = formatDate(date);
   const dateObj = new Date(dateStr);
   
   // Only count if date is on or after goal creation
   if (dateObj < new Date(goalCreatedAt)) {
-    return { count: 0, intensity: 0 };
+    return { count: 0, total: 0, completed: false, percentage: 0 };
   }
   
   let completedCount = 0;
@@ -129,137 +127,265 @@ function getCompletionIntensity(
   });
   
   if (applicableCount === 0) {
-    return { count: 0, intensity: 0 };
+    return { count: 0, total: 0, completed: false, percentage: 0 };
   }
   
-  // Calculate intensity (0-4) based on completion percentage
-  const percentage = completedCount / applicableCount;
-  const intensity = Math.min(4, Math.floor(percentage * 4));
+  const percentage = (completedCount / applicableCount) * 100;
+  const completed = completedCount === applicableCount && applicableCount > 0;
   
-  return { count: completedCount, intensity };
+  return { count: completedCount, total: applicableCount, completed, percentage };
 }
 
-// GitHub-style Calendar Component
-function GitHubStyleCalendar({
-  dates,
+// Duolingo-style Calendar Component
+function DuolingoStyleCalendar({
+  year,
+  month,
   actions,
-  goalCreatedAt
+  goalCreatedAt,
+  targetDate,
+  onMonthChange
 }: {
-  dates: Date[];
+  year: number;
+  month: number;
   actions: Action[];
   goalCreatedAt: string;
+  targetDate?: string;
+  onMonthChange: (year: number, month: number) => void;
 }) {
-  const todayStr = formatDate(new Date());
-  const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const today = new Date();
+  const todayStr = formatDate(today);
+  const dates = useMemo(() => getMonthDates(year, month), [year, month]);
   
-  // Group dates by weeks (7 days per week)
-  const weeks: Date[][] = [];
-  for (let i = 0; i < dates.length; i += 7) {
-    weeks.push(dates.slice(i, i + 7));
-  }
+  const WEEK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
   
-  // Get intensity color based on level (0-4)
-  const getIntensityColor = (intensity: number, isToday: boolean): string => {
-    if (isToday) {
-      return 'ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-1 dark:ring-offset-neutral-900';
+  // Calculate summary statistics for the month
+  const monthStats = useMemo(() => {
+    let daysWithPractice = 0;
+    let totalDays = 0;
+    
+    dates.forEach(date => {
+      const isCurrentMonth = date.getMonth() === month;
+      if (!isCurrentMonth) return;
+      
+      const dateObj = new Date(formatDate(date));
+      if (dateObj < new Date(goalCreatedAt)) return;
+      
+      const { percentage } = getCompletionStatus(date, actions, goalCreatedAt);
+      if (percentage > 0) {
+        daysWithPractice++;
+      }
+      totalDays++;
+    });
+    
+    return { daysWithPractice, totalDays };
+  }, [dates, month, actions, goalCreatedAt]);
+  
+  // Get day color based on completion status (GitHub-style green scale)
+  const getDayColor = (status: { completed: boolean; percentage: number; total: number }, isToday: boolean, isCurrentMonth: boolean): string => {
+    if (!isCurrentMonth) {
+      return 'bg-transparent text-neutral-400 dark:text-neutral-600';
     }
     
-    const colors = [
-      'bg-neutral-100 dark:bg-neutral-800/50', // 0 - no completions
-      'bg-green-300 dark:bg-green-900/40',     // 1 - 1-25%
-      'bg-green-400 dark:bg-green-800/50',     // 2 - 26-50%
-      'bg-green-500 dark:bg-green-700/60',     // 3 - 51-75%
-      'bg-green-600 dark:bg-green-600/70',     // 4 - 76-100%
-    ];
+    let baseColor = '';
     
-    return colors[intensity] || colors[0];
+    if (status.total === 0) {
+      // No applicable actions - neutral gray
+      baseColor = 'bg-neutral-100 dark:bg-neutral-800/50 text-neutral-400 dark:text-neutral-600';
+    } else if (status.completed && status.percentage === 100) {
+      // Fully completed - full green
+      baseColor = 'bg-green-500 dark:bg-green-600 text-white';
+    } else if (status.percentage > 0) {
+      // Partially completed - green with opacity based on percentage
+      // Use intensity levels like GitHub (0-4 scale)
+      const intensity = Math.min(4, Math.floor((status.percentage / 100) * 4));
+      const opacityMap = [
+        'bg-green-200 dark:bg-green-900/30',      // 0-25% - very light
+        'bg-green-300 dark:bg-green-800/40',      // 26-50% - light
+        'bg-green-400 dark:bg-green-700/50',       // 51-75% - medium
+        'bg-green-500 dark:bg-green-600/60',       // 76-99% - darker
+      ];
+      baseColor = `${opacityMap[intensity] || opacityMap[0]} text-white dark:text-green-50`;
+    } else {
+      // No completions - neutral gray
+      baseColor = 'bg-neutral-100 dark:bg-neutral-800/50 text-neutral-400 dark:text-neutral-600';
+    }
+    
+    // Return base color (today indicator is handled separately with a dot)
+    return baseColor;
   };
   
+  const handlePrevMonth = () => {
+    if (month === 0) {
+      onMonthChange(year - 1, 11);
+    } else {
+      onMonthChange(year, month - 1);
+    }
+  };
+  
+  const handleNextMonth = () => {
+    if (!canNavigateNext) return; // Prevent navigation if it would exceed target date
+    
+    if (month === 11) {
+      onMonthChange(year + 1, 0);
+    } else {
+      onMonthChange(year, month + 1);
+    }
+  };
+  
+  // Check if next month would exceed target date
+  const canNavigateNext = useMemo(() => {
+    if (!targetDate) return true; // If no target date, allow navigation
+    
+    const target = new Date(targetDate);
+    const nextMonth = month === 11 ? new Date(year + 1, 0, 1) : new Date(year, month + 1, 1);
+    
+    // Allow navigation if next month's first day is on or before target date
+    return nextMonth <= target;
+  }, [year, month, targetDate]);
+  
   return (
-    <div className="w-full space-y-4">
-      {/* Legend */}
+    <div className="w-full space-y-6">
+      {/* Month Navigation */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-neutral-600 dark:text-neutral-400">
-          {actions.length} {actions.length === 1 ? 'action' : 'actions'}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-neutral-500 dark:text-neutral-500">Less</span>
-          <div className="flex items-center gap-1">
-            {[0, 1, 2, 3, 4].map(level => (
-              <div
-                key={level}
-                className={`w-3 h-3 rounded-sm ${getIntensityColor(level, false)}`}
-              />
-            ))}
-          </div>
-          <span className="text-xs text-neutral-500 dark:text-neutral-500">More</span>
-        </div>
+        <button
+          onClick={handlePrevMonth}
+          className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+          aria-label="Previous month"
+        >
+          <svg className="w-5 h-5 text-neutral-600 dark:text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+          {MONTH_NAMES[month]} {year}
+        </h2>
+        
+        <button
+          onClick={handleNextMonth}
+          disabled={!canNavigateNext}
+          className={`p-2 rounded-lg transition-colors ${
+            canNavigateNext
+              ? 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              : 'opacity-50 cursor-not-allowed'
+          }`}
+          aria-label="Next month"
+        >
+          <svg className="w-5 h-5 text-neutral-600 dark:text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       </div>
       
-      {/* Calendar Grid */}
-      <div className="overflow-x-auto">
-        <div className="inline-block min-w-full">
-          <div className="bg-white dark:bg-neutral-900/60 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
-            <div className="flex gap-1">
-              {/* Day labels */}
-              <div className="flex flex-col gap-1 mr-2 pt-7">
-                {WEEK_DAYS.map((day, idx) => {
-                  // Only show label for some days to save space
-                  if (idx % 2 === 0) {
-                    return (
-                      <div key={day} className="h-3 flex items-center">
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400 w-8">
-                          {day.slice(0, 1)}
-                        </span>
-                      </div>
-                    );
-                  }
-                  return <div key={day} className="h-3" />;
-                })}
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-neutral-900/60 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">
+                {monthStats.daysWithPractice}
               </div>
-              
-              {/* Calendar weeks */}
-              <div className="flex gap-1 flex-1">
-                {weeks.map((week, weekIdx) => (
-                  <div key={weekIdx} className="flex flex-col gap-1">
-                    {week.map((date) => {
-                      const dateStr = formatDate(date);
-                      const isToday = dateStr === todayStr;
-                      const isCurrentMonth = date.getMonth() === new Date().getMonth();
-                      const { count, intensity } = getCompletionIntensity(date, actions, goalCreatedAt);
-                      
-                      return (
-                        <motion.div
-                          key={dateStr}
-                          initial={{ scale: 0.8, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ delay: (weekIdx * 7 + date.getDay()) * 0.01 }}
-                          className={`w-3 h-3 rounded-sm transition-all group relative ${getIntensityColor(intensity, isToday)} ${
-                            !isCurrentMonth ? 'opacity-40' : ''
-                          } hover:scale-125 hover:z-10`}
-                          title={`${date.toLocaleDateString('en-US', { 
-                            weekday: 'long', 
-                            month: 'long', 
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}: ${count} ${count === 1 ? 'action' : 'actions'} completed`}
-                        >
-                          {/* Tooltip content on hover */}
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-20 transition-opacity">
-                            {count} {count === 1 ? 'action' : 'actions'} completed
-                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-neutral-900 dark:border-t-neutral-100"></div>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                ))}
+              <div className="text-xs text-neutral-600 dark:text-neutral-400">
+                days of streak
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white dark:bg-neutral-900/60 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">
+                {actions.length}
+              </div>
+              <div className="text-xs text-neutral-600 dark:text-neutral-400">
+                {actions.length === 1 ? 'action' : 'actions'}
               </div>
             </div>
           </div>
         </div>
       </div>
       
+      {/* Calendar Grid */}
+      <div className="bg-white dark:bg-neutral-900/60 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
+        {/* Day labels */}
+        <div className="grid grid-cols-7 gap-2 mb-3">
+          {WEEK_DAYS.map((day, index) => (
+            <div key={`${day}-${index}`} className="text-center text-xs font-medium text-neutral-600 dark:text-neutral-400 py-1">
+              {day}
+            </div>
+          ))}
+        </div>
+        
+        {/* Calendar weeks */}
+        <div className="grid grid-cols-7 gap-2">
+          {dates.map((date) => {
+            const dateStr = formatDate(date);
+            const isToday = dateStr === todayStr;
+            const isCurrentMonth = date.getMonth() === month;
+            const status = getCompletionStatus(date, actions, goalCreatedAt);
+            
+            return (
+              <motion.div
+                key={dateStr}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: Math.random() * 0.05 }}
+                className={`relative group aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-all ${getDayColor(status, isToday, isCurrentMonth)} ${
+                  isCurrentMonth ? 'cursor-pointer hover:scale-110' : ''
+                }`}
+                title={`${date.toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  month: 'long', 
+                  day: 'numeric',
+                  year: 'numeric'
+                })}: ${status.count} ${status.count === 1 ? 'action' : 'actions'} completed`}
+              >
+                {isCurrentMonth && (
+                  <>
+                    <div className="relative z-10 flex flex-col items-center justify-center w-full h-full">
+                      <span className="text-sm font-medium">{date.getDate()}</span>
+                      {status.total > 0 && (
+                        <span className="text-[9px] font-normal mt-0.5 opacity-80">
+                          {status.count}/{status.total}
+                        </span>
+                      )}
+                    </div>
+                    {isToday && (
+                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
+                    )}
+                    {/* Tooltip */}
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-20 transition-opacity shadow-lg">
+                      {date.toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        month: 'long', 
+                        day: 'numeric'
+                      })}
+                      <br />
+                      {status.count}/{status.total} {status.total === 1 ? 'action' : 'actions'} completed
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-neutral-900 dark:border-t-neutral-100"></div>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -272,8 +398,7 @@ function CardsView({
   getCurrentStreak,
   isApplicable,
   isCompleted,
-  todayStr,
-  timeframe
+  todayStr
 }: {
   actions: Action[];
   filteredDates: Date[];
@@ -282,7 +407,6 @@ function CardsView({
   isApplicable: (action: Action, date: Date) => boolean;
   isCompleted: (action: Action, date: Date) => boolean;
   todayStr: string;
-  timeframe: string;
 }) {
   return (
     <div className="space-y-4">
@@ -344,7 +468,7 @@ function CardsView({
             
             {/* Date Visualization - Compact Heatmap Style */}
             <div className="flex flex-wrap gap-1.5 items-center">
-              {applicableDates.slice(0, timeframe === 'week' ? 14 : timeframe === 'month' ? 37 : 50).map((date) => {
+              {applicableDates.map((date) => {
                 const applicable = isApplicable(action, date);
                 const completed = isCompleted(action, date);
                 const dateStr = formatDate(date);
@@ -359,9 +483,7 @@ function CardsView({
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.2, delay: Math.random() * 0.1 }}
-                    className={`relative group ${
-                      isToday ? 'ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-1 dark:ring-offset-neutral-900' : ''
-                    }`}
+                    className="relative group"
                     title={`${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${completed ? 'Completed' : isPast ? 'Missed' : 'Upcoming'}`}
                   >
                     <div
@@ -387,11 +509,6 @@ function CardsView({
                   </motion.div>
                 );
               })}
-              {applicableDates.length > (timeframe === 'week' ? 14 : timeframe === 'month' ? 37 : 50) && (
-                <div className="text-xs text-neutral-400 dark:text-neutral-600 px-2">
-                  +{applicableDates.length - (timeframe === 'week' ? 14 : timeframe === 'month' ? 37 : 50)} more
-                </div>
-              )}
             </div>
           </motion.div>
         );
@@ -403,41 +520,19 @@ function CardsView({
 export function ActionProgressTracker({ 
   actions, 
   goalCreatedAt,
+  targetDate,
   onToggleCompletion 
 }: ActionProgressTrackerProps) {
-  const [viewMode, setViewMode] = useState<'cards' | 'calendar'>('cards');
-  const [timeframe, setTimeframe] = useState<'week' | 'month' | 'all'>('month');
+  const [viewMode, setViewMode] = useState<'cards' | 'calendar'>('calendar');
   
   const dates = useMemo(() => {
     return getRelevantDates();
   }, []);
   
-  // Filter dates based on timeframe
+  // Use all dates (no filtering)
   const filteredDates = useMemo(() => {
-    const today = new Date();
-    const todayStr = formatDate(today);
-    
-    switch (timeframe) {
-      case 'week':
-        return dates.filter(date => {
-          const dateStr = formatDate(date);
-          const dateTime = new Date(dateStr).getTime();
-          const todayTime = new Date(todayStr).getTime();
-          const diff = dateTime - todayTime;
-          return diff >= -7 * 24 * 60 * 60 * 1000 && diff <= 7 * 24 * 60 * 60 * 1000;
-        });
-      case 'month':
-        return dates.filter(date => {
-          const dateStr = formatDate(date);
-          const dateTime = new Date(dateStr).getTime();
-          const todayTime = new Date(todayStr).getTime();
-          const diff = dateTime - todayTime;
-          return diff >= -30 * 24 * 60 * 60 * 1000 && diff <= 7 * 24 * 60 * 60 * 1000;
-        });
-      default:
-        return dates;
-    }
-  }, [dates, timeframe]);
+    return dates;
+  }, [dates]);
   
   // Check if an action is completed on a specific date
   const isCompleted = (action: Action, date: Date): boolean => {
@@ -493,8 +588,14 @@ export function ActionProgressTracker({
     return null;
   }
   
-  const monthDates = useMemo(() => getMonthDates(), []);
-  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // Calendar view state
+  const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth());
+  
+  const handleMonthChange = (year: number, month: number) => {
+    setCalendarYear(year);
+    setCalendarMonth(month);
+  };
   
   return (
     <div className="w-full space-y-6">
@@ -504,14 +605,6 @@ export function ActionProgressTracker({
         <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-3">
           <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mr-2">View:</span>
           <Button
-            variant={viewMode === 'cards' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('cards')}
-            className="h-8"
-          >
-            Cards
-          </Button>
-          <Button
             variant={viewMode === 'calendar' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setViewMode('calendar')}
@@ -519,51 +612,27 @@ export function ActionProgressTracker({
           >
             Calendar
           </Button>
+          <Button
+            variant={viewMode === 'cards' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('cards')}
+            className="h-8"
+          >
+            Cards
+          </Button>
         </div>
         
-        {/* Timeframe Toggle (only for cards view) or Month Title (for calendar view) */}
-        <div className="flex items-center gap-2">
-          {viewMode === 'cards' ? (
-            <>
-              <Button
-                variant={timeframe === 'week' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTimeframe('week')}
-                className="h-8"
-              >
-                Week
-              </Button>
-              <Button
-                variant={timeframe === 'month' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTimeframe('month')}
-                className="h-8"
-              >
-                Month
-              </Button>
-              <Button
-                variant={timeframe === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTimeframe('all')}
-                className="h-8"
-              >
-                All
-              </Button>
-            </>
-          ) : (
-            <div className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-              {MONTH_NAMES[new Date().getMonth()]} {new Date().getFullYear()}
-            </div>
-          )}
-        </div>
       </div>
       
       {/* Render based on view mode */}
       {viewMode === 'calendar' ? (
-        <GitHubStyleCalendar 
-          dates={monthDates}
+        <DuolingoStyleCalendar 
+          year={calendarYear}
+          month={calendarMonth}
           actions={actions}
           goalCreatedAt={goalCreatedAt}
+          targetDate={targetDate}
+          onMonthChange={handleMonthChange}
         />
       ) : (
         <CardsView 
@@ -574,7 +643,6 @@ export function ActionProgressTracker({
           isApplicable={isApplicable}
           isCompleted={isCompleted}
           todayStr={todayStr}
-          timeframe={timeframe}
         />
       )}
     </div>
