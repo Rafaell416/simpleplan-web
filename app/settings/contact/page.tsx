@@ -37,10 +37,10 @@ export default function ContactSettingsPage() {
                   <p className="text-sm text-muted-foreground">
                     Send us an email at{' '}
                     <a
-                      href="mailto:support@simpleplan.app"
+                      href="mailto:rvillarreal416@gmail.com"
                       className="text-primary hover:underline"
                     >
-                      support@simpleplan.app
+                      rvillarreal416@gmail.com
                     </a>
                   </p>
                 </div>

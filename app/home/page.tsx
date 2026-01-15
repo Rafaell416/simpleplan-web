@@ -10,25 +10,13 @@ import { DateNavigator } from '@/components/DateNavigator';
 import { DateNavigatorMobile } from '@/components/DateNavigatorMobile';
 import { useGoals } from '@/lib/useGoals';
 import { isActionApplicableOnDay, isActionCompletedOnDate, formatDate } from '@/lib/utils/actionUtils';
-
-const STORAGE_KEY = 'simpleplan-todos';
-
-const defaultTodos: Todo[] = [
-  { id: '1', text: 'Work on copilotIQ', completed: true },
-  { id: '2', text: 'Chat gpt therapy', completed: false },
-  { id: '3', text: 'Cortex fu', completed: false },
-  { id: '4', text: 'Work on simple plan web', completed: false },
-  { id: '5', text: 'Time with God', completed: false },
-  { id: '6', text: 'Duolingo', completed: false },
-  { id: '7', text: 'Continue reading nutrition app document', completed: false },
-  { id: '8', text: 'Continue working on tripby spreadsheet', completed: false },
-  { id: '9', text: 'Call Juan Pablo Apriori', completed: false },
-  { id: '10', text: 'Stretch and mobility', completed: false },
-];
+import { supabase } from '@/lib/supabase/client';
+import { getUserId } from '@/lib/supabase/rls';
 
 export default function HomePage() {
-  const [todos, setTodos] = useState<Todo[]>(defaultTodos);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [useSupabase, setUseSupabase] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const { goals, isLoading: goalsLoading, toggleActionCompletion } = useGoals();
 
@@ -79,40 +67,110 @@ export default function HomePage() {
     });
   }, [todos, actionsForSelectedDate]);
 
-  // Load todos from localStorage on mount
+  // Load todos from Supabase on mount
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsedTodos = JSON.parse(stored);
-        if (Array.isArray(parsedTodos) && parsedTodos.length > 0) {
-          setTodos(parsedTodos);
-        } else {
-          // If stored data is invalid, use defaults and save them
-          setTodos(defaultTodos);
-        }
-      } else {
-        // If no stored data, use defaults
-        setTodos(defaultTodos);
+    const loadTodos = async () => {
+      // Check if Supabase is configured
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        console.warn('Supabase not configured. Todos require Supabase.');
+        setIsLoaded(true);
+        return;
       }
-    } catch (error) {
-      console.error('Failed to load todos:', error);
-      setTodos(defaultTodos);
-    } finally {
-      setIsLoaded(true);
-    }
+
+      setUseSupabase(true);
+
+      // Load todos from Supabase
+      try {
+        const userId = await getUserId();
+        const { data: dbTodos, error } = await supabase
+          .from('todos')
+          .select('*')
+          .eq('user_id', userId)
+          .is('action_id', null) // Only get regular todos, not action todos
+          .order('created_at', { ascending: true });
+
+        if (error) {
+          console.error('Error loading todos from Supabase:', error);
+          setTodos([]);
+        } else {
+          const convertedTodos: Todo[] = (dbTodos || []).map((todo: any) => ({
+            id: todo.id,
+            text: todo.text,
+            completed: todo.completed,
+            actionId: todo.action_id || undefined,
+            goalId: undefined,
+            goalTitle: todo.goal_title || undefined,
+          }));
+          setTodos(convertedTodos);
+        }
+      } catch (error) {
+        console.error('Error loading todos:', error);
+        setTodos([]);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    loadTodos();
   }, []);
 
-  // Save regular todos to localStorage whenever they change
+  // Save regular todos to Supabase whenever they change
   useEffect(() => {
-    if (isLoaded && !goalsLoading) {
+    if (!isLoaded || goalsLoading || !useSupabase) return;
+
+    const saveTodos = async () => {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+        const userId = await getUserId();
+        
+        // Get current todos from database to compare
+        const { data: existingTodos } = await supabase
+          .from('todos')
+          .select('id')
+          .eq('user_id', userId)
+          .is('action_id', null);
+
+        const existingIds = new Set((existingTodos || []).map((t: any) => t.id));
+        const currentIds = new Set(todos.map((t: Todo) => t.id));
+
+        // Delete todos that are no longer in the list
+        const toDelete = Array.from(existingIds).filter((id: unknown): id is string => typeof id === 'string' && !currentIds.has(id));
+        if (toDelete.length > 0) {
+          await supabase
+            .from('todos')
+            .delete()
+            .in('id', toDelete)
+            .eq('user_id', userId);
+        }
+
+        // Upsert todos
+        const todosToUpsert = todos.map(todo => ({
+          id: todo.id,
+          user_id: userId,
+          text: todo.text,
+          completed: todo.completed,
+          action_id: null,
+          goal_title: null,
+        }));
+
+        if (todosToUpsert.length > 0) {
+          const { error } = await supabase
+            .from('todos')
+            .upsert(todosToUpsert, { onConflict: 'id' });
+
+          if (error) {
+            console.error('Error saving todos to Supabase:', error);
+          }
+        }
       } catch (error) {
-        console.error('Failed to save todos:', error);
+        console.error('Error saving todos:', error);
       }
-    }
-  }, [todos, isLoaded, goalsLoading]);
+    };
+
+    saveTodos();
+  }, [todos, isLoaded, goalsLoading, useSupabase]);
 
   // Handle todo changes (both regular todos and action todos)
   const handleTodosChange = (updatedTodos: Todo[]) => {

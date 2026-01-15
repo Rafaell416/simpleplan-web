@@ -54,7 +54,7 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: To
   const addTodo = () => {
     if (newTodo.trim()) {
       const newTodos = [...todos, {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         text: newTodo.trim(),
         completed: false,
       }];

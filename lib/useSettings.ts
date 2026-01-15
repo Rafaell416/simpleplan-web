@@ -10,6 +10,8 @@ import {
   THEME_PALETTES,
   FONT_STYLE_CONFIG,
 } from './settingsTypes';
+import { supabase } from './supabase/client';
+import { getUserId } from './supabase/rls';
 
 const SETTINGS_STORAGE_KEY = 'simpleplan-settings';
 
@@ -59,32 +61,106 @@ export function useSettings() {
 function useSettingsInternal() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [useSupabase, setUseSupabase] = useState(false);
 
-  // Load settings from localStorage on mount
+  // Load settings from Supabase or localStorage on mount
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+    const loadSettings = async () => {
+      // Check if Supabase is configured
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        console.warn('Supabase not configured, using localStorage');
+        setUseSupabase(false);
+        // Load from localStorage
+        try {
+          const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+          }
+        } catch (error) {
+          console.error('Failed to load settings:', error);
+        } finally {
+          setIsLoaded(true);
+        }
+        return;
       }
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-    } finally {
-      setIsLoaded(true);
-    }
+
+      setUseSupabase(true);
+
+      // Load settings from Supabase
+      try {
+        const userId = await getUserId();
+        const { data: dbSettings, error } = await supabase
+          .from('settings')
+          .select('theme, font_size, font_style, dark_mode')
+          .eq('user_id', userId)
+          .maybeSingle(); // Use maybeSingle() instead of single() to handle no rows gracefully
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error loading settings from Supabase:', error);
+        }
+
+        if (dbSettings) {
+          setSettings({ 
+            ...DEFAULT_SETTINGS, 
+            theme: dbSettings.theme as ThemePalette,
+            fontSize: dbSettings.font_size as FontSize,
+            fontStyle: dbSettings.font_style as FontStyle,
+            darkMode: dbSettings.dark_mode as 'light' | 'dark' | 'auto',
+          });
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    loadSettings();
   }, []);
 
-  // Save settings to localStorage whenever they change
+  // Save settings to Supabase or localStorage whenever they change
   useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      } catch (error) {
-        console.error('Failed to save settings:', error);
+    if (!isLoaded) return;
+
+    const saveSettings = async () => {
+      if (useSupabase) {
+        try {
+          const userId = await getUserId();
+          const { error } = await supabase
+            .from('settings')
+            .upsert({
+              user_id: userId,
+              theme: settings.theme,
+              font_size: settings.fontSize,
+              font_style: settings.fontStyle,
+              dark_mode: settings.darkMode,
+            }, {
+              onConflict: 'user_id',
+              ignoreDuplicates: false
+            });
+
+          if (error) {
+            console.error('Error saving settings to Supabase:', error);
+          }
+        } catch (error) {
+          console.error('Error saving settings:', error);
+        }
+      } else {
+        // Fallback to localStorage
+        try {
+          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+        } catch (error) {
+          console.error('Failed to save settings:', error);
+        }
       }
-    }
-  }, [settings, isLoaded]);
+    };
+
+    saveSettings();
+  }, [settings, isLoaded, useSupabase]);
 
   // Apply settings to document
   useEffect(() => {
