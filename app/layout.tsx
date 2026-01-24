@@ -4,6 +4,7 @@ import "./globals.css";
 import { DockBar } from "@/components/DockBar";
 import { TabBar } from "@/components/TabBar";
 import { SettingsProvider } from "@/components/SettingsProvider";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { PreventZoom } from "@/components/PreventZoom";
 
 const geistSans = Geist({
@@ -59,13 +60,15 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${roboto.variable} ${openSans.variable} antialiased`}
       >
         <PreventZoom />
-        <SettingsProvider>
-          <main className="relative min-h-screen bg-background text-foreground">
-            {children}
-          </main>
-          <DockBar />
-          <TabBar />
-        </SettingsProvider>
+        <AuthProvider>
+          <SettingsProvider>
+            <main className="relative min-h-screen bg-background text-foreground">
+              {children}
+            </main>
+            <DockBar />
+            <TabBar />
+          </SettingsProvider>
+        </AuthProvider>
       </body>
     </html>
   );

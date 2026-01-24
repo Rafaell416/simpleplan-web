@@ -1,12 +1,20 @@
 'use client';
 
-import { useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { GoalsList } from '@/components/GoalsList';
 import { Goal, Action } from '@/lib/types';
 import { useGoals } from '@/lib/useGoals';
+import { AuthGuard } from '@/components/AuthGuard';
 
 export default function GoalsPage() {
+  return (
+    <AuthGuard>
+      <GoalsContent />
+    </AuthGuard>
+  );
+}
+
+function GoalsContent() {
   const {
     goals,
     isLoading,
@@ -17,9 +25,12 @@ export default function GoalsPage() {
     deleteAction,
   } = useGoals();
 
-
-  const handleGoalCreate = (goalData: Omit<Goal, 'id' | 'createdAt' | 'actions'>) => {
-    createGoal(goalData);
+  const handleGoalCreate = async (goalData: Omit<Goal, 'id' | 'createdAt' | 'actions'>) => {
+    try {
+      await createGoal(goalData);
+    } catch (error) {
+      console.error('Error creating goal:', error);
+    }
   };
 
   const handleGoalUpdate = (id: string, goalData: Partial<Goal>) => {

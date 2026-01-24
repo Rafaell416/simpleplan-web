@@ -30,8 +30,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { AuthGuard } from '@/components/AuthGuard';
 
 export default function GoalDetailPage() {
+  return (
+    <AuthGuard>
+      <GoalDetailContent />
+    </AuthGuard>
+  );
+}
+
+function GoalDetailContent() {
   const params = useParams();
   const router = useRouter();
   const { goals, updateGoal, deleteGoal, addAction, updateAction, deleteAction, isLoading } = useGoals();

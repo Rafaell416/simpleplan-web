@@ -1,11 +1,17 @@
 'use client';
 
-import { ensureUserExists } from './migrations';
+import { supabase } from './client';
 
 /**
- * Gets or creates the current user's database ID
- * This ensures the user exists in the database before any operations
+ * Gets the current user's database ID from Supabase auth
+ * Throws an error if user is not authenticated
  */
 export async function getUserId(): Promise<string> {
-  return ensureUserExists();
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session || !session.user) {
+    throw new Error('User not authenticated. Please sign in to continue.');
+  }
+
+  return session.user.id;
 }

@@ -12,13 +12,24 @@ import { useGoals } from '@/lib/useGoals';
 import { isActionApplicableOnDay, isActionCompletedOnDate, formatDate } from '@/lib/utils/actionUtils';
 import { supabase } from '@/lib/supabase/client';
 import { getUserId } from '@/lib/supabase/rls';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { AuthGuard } from '@/components/AuthGuard';
 
 export default function HomePage() {
+  return (
+    <AuthGuard>
+      <HomeContent />
+    </AuthGuard>
+  );
+}
+
+function HomeContent() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [useSupabase, setUseSupabase] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const { goals, isLoading: goalsLoading, toggleActionCompletion } = useGoals();
+  const { loading: authLoading } = useAuth();
 
   // Get actions applicable for selected date from all goals
   const actionsForSelectedDate = useMemo(() => {
@@ -67,8 +78,11 @@ export default function HomePage() {
     });
   }, [todos, actionsForSelectedDate]);
 
-  // Load todos from Supabase on mount
+  // Load todos from Supabase on mount (wait for auth to be ready)
   useEffect(() => {
+    // Wait for auth to finish loading before trying to load todos
+    if (authLoading) return;
+
     const loadTodos = async () => {
       // Check if Supabase is configured
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -115,15 +129,20 @@ export default function HomePage() {
     };
 
     loadTodos();
-  }, []);
+  }, [authLoading]);
 
   // Save regular todos to Supabase whenever they change
   useEffect(() => {
-    if (!isLoaded || goalsLoading || !useSupabase) return;
+    if (!isLoaded || goalsLoading || !useSupabase || authLoading) return;
+    if (todos.length === 0) return; // Don't save if no todos (initial load)
 
     const saveTodos = async () => {
       try {
         const userId = await getUserId();
+        if (!userId) {
+          console.warn('No user ID available, skipping todo save');
+          return;
+        }
         
         // Get current todos from database to compare
         const { data: existingTodos } = await supabase
@@ -170,7 +189,7 @@ export default function HomePage() {
     };
 
     saveTodos();
-  }, [todos, isLoaded, goalsLoading, useSupabase]);
+  }, [todos, isLoaded, goalsLoading, useSupabase, authLoading]);
 
   // Handle todo changes (both regular todos and action todos)
   const handleTodosChange = (updatedTodos: Todo[]) => {
@@ -180,6 +199,7 @@ export default function HomePage() {
     
     // Separate regular todos from action todos
     const regularTodos = updatedTodos.filter(todo => !todo.actionId);
+    
     setTodos(regularTodos);
     
     // Handle action todo completions separately - only update if completion state changed

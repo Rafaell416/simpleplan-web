@@ -5,8 +5,17 @@ import { Header } from '@/components/Header';
 import { useSettings } from '@/lib/useSettings';
 import { THEME_PALETTES, FONT_SIZE_CONFIG, FONT_STYLE_CONFIG, type ThemePalette, type FontSize, type FontStyle } from '@/lib/settingsTypes';
 import { Palette, Type, Sun, Moon, Monitor, ArrowLeft } from 'lucide-react';
+import { AuthGuard } from '@/components/AuthGuard';
 
 export default function AppearanceSettingsPage() {
+  return (
+    <AuthGuard>
+      <AppearanceContent />
+    </AuthGuard>
+  );
+}
+
+function AppearanceContent() {
   const { settings, setTheme, setFontSize, setFontStyle, setDarkMode } = useSettings();
 
   return (

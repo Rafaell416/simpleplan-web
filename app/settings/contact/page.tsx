@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { ArrowLeft, Mail } from 'lucide-react';
+import { AuthGuard } from '@/components/AuthGuard';
 
 export default function ContactSettingsPage() {
   return (
-    <main className="flex min-h-screen flex-col bg-background text-foreground">
+    <AuthGuard>
+      <main className="flex min-h-screen flex-col bg-background text-foreground">
       <Header title="Contact Us" />
       <div className="flex-1 flex flex-col pt-24 pb-20 md:pb-32">
         <div className="w-full max-w-2xl mx-auto px-6 py-8">
@@ -56,6 +58,7 @@ export default function ContactSettingsPage() {
         </div>
       </div>
     </main>
+    </AuthGuard>
   );
 }
 

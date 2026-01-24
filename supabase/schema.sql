@@ -1,16 +1,12 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Users table (for anonymous users and authenticated users)
+-- Users table (for authenticated users only)
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  anonymous_id TEXT UNIQUE, -- For anonymous users before authentication
-  email TEXT, -- Will be set when user authenticates with Google
-  auth_provider TEXT, -- 'google', etc.
-  auth_provider_id TEXT, -- Provider-specific user ID
+  email TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(auth_provider, auth_provider_id) -- Ensure one account per provider
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Goals table
@@ -78,13 +74,10 @@ CREATE INDEX IF NOT EXISTS idx_action_completions_action_id ON action_completion
 CREATE INDEX IF NOT EXISTS idx_action_completions_date ON action_completions(date);
 CREATE INDEX IF NOT EXISTS idx_todos_user_id ON todos(user_id);
 CREATE INDEX IF NOT EXISTS idx_todos_action_id ON todos(action_id);
-CREATE INDEX IF NOT EXISTS idx_users_anonymous_id ON users(anonymous_id);
-CREATE INDEX IF NOT EXISTS idx_users_auth_provider ON users(auth_provider, auth_provider_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- Row Level Security (RLS) policies
--- Note: Since we're using anonymous users, RLS is simplified
--- All queries filter by user_id on the client side
--- RLS provides an additional security layer for authenticated users
+-- All operations require authentication via auth.uid()
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
@@ -93,94 +86,124 @@ ALTER TABLE action_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
--- Users policies - allow all operations for now (filtered by client-side user_id)
--- When authentication is added, these can be tightened
-CREATE POLICY "Users can view user records"
+-- Users policies - authenticated users can manage their own record
+CREATE POLICY "Users can view their own record"
   ON users FOR SELECT
-  USING (true);
+  USING (auth.uid() = id);
 
-CREATE POLICY "Users can insert user records"
+CREATE POLICY "Users can insert their own record"
   ON users FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (auth.uid() = id);
 
--- Goals policies - allow all operations (filtered by client-side user_id)
--- When authentication is added, these can use auth.uid()
-CREATE POLICY "Users can view goals"
+CREATE POLICY "Users can update their own record"
+  ON users FOR UPDATE
+  USING (auth.uid() = id);
+
+-- Goals policies - authenticated users can manage their own goals
+CREATE POLICY "Users can view their own goals"
   ON goals FOR SELECT
-  USING (true);
+  USING (user_id = auth.uid());
 
-CREATE POLICY "Users can insert goals"
+CREATE POLICY "Users can insert their own goals"
   ON goals FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (user_id = auth.uid());
 
-CREATE POLICY "Users can update goals"
+CREATE POLICY "Users can update their own goals"
   ON goals FOR UPDATE
-  USING (true);
+  USING (user_id = auth.uid());
 
-CREATE POLICY "Users can delete goals"
+CREATE POLICY "Users can delete their own goals"
   ON goals FOR DELETE
-  USING (true);
+  USING (user_id = auth.uid());
 
--- Actions policies - allow all operations (filtered by client-side via goals.user_id)
-CREATE POLICY "Users can view actions"
+-- Actions policies - access controlled through goal ownership
+CREATE POLICY "Users can view actions for their goals"
   ON actions FOR SELECT
-  USING (true);
+  USING (EXISTS (
+    SELECT 1 FROM goals WHERE goals.id = actions.goal_id AND goals.user_id = auth.uid()
+  ));
 
-CREATE POLICY "Users can insert actions"
+CREATE POLICY "Users can insert actions for their goals"
   ON actions FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM goals WHERE goals.id = actions.goal_id AND goals.user_id = auth.uid()
+  ));
 
-CREATE POLICY "Users can update actions"
+CREATE POLICY "Users can update actions for their goals"
   ON actions FOR UPDATE
-  USING (true);
+  USING (EXISTS (
+    SELECT 1 FROM goals WHERE goals.id = actions.goal_id AND goals.user_id = auth.uid()
+  ));
 
-CREATE POLICY "Users can delete actions"
+CREATE POLICY "Users can delete actions for their goals"
   ON actions FOR DELETE
-  USING (true);
+  USING (EXISTS (
+    SELECT 1 FROM goals WHERE goals.id = actions.goal_id AND goals.user_id = auth.uid()
+  ));
 
--- Action completions policies - allow all operations (filtered by client-side via actions/goals.user_id)
-CREATE POLICY "Users can view action completions"
+-- Action completions policies - access controlled through action/goal ownership
+CREATE POLICY "Users can view their action completions"
   ON action_completions FOR SELECT
-  USING (true);
+  USING (EXISTS (
+    SELECT 1 FROM actions
+    JOIN goals ON goals.id = actions.goal_id
+    WHERE actions.id = action_completions.action_id AND goals.user_id = auth.uid()
+  ));
 
-CREATE POLICY "Users can insert action completions"
+CREATE POLICY "Users can insert their action completions"
   ON action_completions FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM actions
+    JOIN goals ON goals.id = actions.goal_id
+    WHERE actions.id = action_completions.action_id AND goals.user_id = auth.uid()
+  ));
 
-CREATE POLICY "Users can update action completions"
+CREATE POLICY "Users can update their action completions"
   ON action_completions FOR UPDATE
-  USING (true);
+  USING (EXISTS (
+    SELECT 1 FROM actions
+    JOIN goals ON goals.id = actions.goal_id
+    WHERE actions.id = action_completions.action_id AND goals.user_id = auth.uid()
+  ));
 
-CREATE POLICY "Users can delete action completions"
+CREATE POLICY "Users can delete their action completions"
   ON action_completions FOR DELETE
-  USING (true);
+  USING (EXISTS (
+    SELECT 1 FROM actions
+    JOIN goals ON goals.id = actions.goal_id
+    WHERE actions.id = action_completions.action_id AND goals.user_id = auth.uid()
+  ));
 
--- Todos policies - allow all operations (filtered by client-side user_id)
-CREATE POLICY "Users can view todos"
+-- Todos policies - authenticated users can manage their own todos
+CREATE POLICY "Users can view their own todos"
   ON todos FOR SELECT
-  USING (true);
+  USING (user_id = auth.uid());
 
-CREATE POLICY "Users can insert todos"
+CREATE POLICY "Users can insert their own todos"
   ON todos FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (user_id = auth.uid());
 
-CREATE POLICY "Users can update todos"
+CREATE POLICY "Users can update their own todos"
   ON todos FOR UPDATE
-  USING (true);
+  USING (user_id = auth.uid());
 
-CREATE POLICY "Users can delete todos"
+CREATE POLICY "Users can delete their own todos"
   ON todos FOR DELETE
-  USING (true);
+  USING (user_id = auth.uid());
 
--- Settings policies - allow all operations (filtered by client-side user_id)
-CREATE POLICY "Users can view settings"
+-- Settings policies - authenticated users can manage their own settings
+CREATE POLICY "Users can view their own settings"
   ON settings FOR SELECT
-  USING (true);
+  USING (user_id = auth.uid());
 
-CREATE POLICY "Users can insert settings"
+CREATE POLICY "Users can insert their own settings"
   ON settings FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (user_id = auth.uid());
 
-CREATE POLICY "Users can update settings"
+CREATE POLICY "Users can update their own settings"
   ON settings FOR UPDATE
-  USING (true);
+  USING (user_id = auth.uid());
+
+CREATE POLICY "Users can delete their own settings"
+  ON settings FOR DELETE
+  USING (user_id = auth.uid());

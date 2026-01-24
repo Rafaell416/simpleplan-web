@@ -1,6 +1,32 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth/AuthProvider';
 
 export default function LandingPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  // Redirect authenticated users to home
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace('/home');
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <section className="flex min-h-screen flex-col items-center justify-center font-sans px-6 py-12">
       <div className="max-w-4xl mx-auto text-center space-y-8">
@@ -40,7 +66,7 @@ export default function LandingPage() {
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
           <Link
-            href="/home"
+            href="/auth/signup"
             className="px-8 py-3 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-lg font-medium hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors flex items-center gap-2"
           >
             <svg
@@ -59,7 +85,7 @@ export default function LandingPage() {
             Get Started
           </Link>
           <Link
-            href="/goals"
+            href="/auth/login"
             className="px-8 py-3 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white rounded-lg font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center gap-2"
           >
             <svg
@@ -72,10 +98,10 @@ export default function LandingPage() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
               />
             </svg>
-            View Goals
+            Sign In
           </Link>
         </div>
 

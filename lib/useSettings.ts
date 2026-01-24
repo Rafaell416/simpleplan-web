@@ -11,7 +11,6 @@ import {
   FONT_STYLE_CONFIG,
 } from './settingsTypes';
 import { supabase } from './supabase/client';
-import { getUserId } from './supabase/rls';
 
 const SETTINGS_STORAGE_KEY = 'simpleplan-settings';
 
@@ -88,16 +87,35 @@ function useSettingsInternal() {
         return;
       }
 
+      // Check if user is authenticated before trying to load from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !session.user) {
+        // Not authenticated, use localStorage only
+        setUseSupabase(false);
+        try {
+          const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+          }
+        } catch (error) {
+          console.error('Failed to load settings:', error);
+        } finally {
+          setIsLoaded(true);
+        }
+        return;
+      }
+
       setUseSupabase(true);
 
       // Load settings from Supabase
       try {
-        const userId = await getUserId();
+        const userId = session.user.id;
         const { data: dbSettings, error } = await supabase
           .from('settings')
           .select('theme, font_size, font_style, dark_mode')
           .eq('user_id', userId)
-          .maybeSingle(); // Use maybeSingle() instead of single() to handle no rows gracefully
+          .maybeSingle();
 
         if (error && error.code !== 'PGRST116') {
           console.error('Error loading settings from Supabase:', error);
@@ -128,8 +146,20 @@ function useSettingsInternal() {
 
     const saveSettings = async () => {
       if (useSupabase) {
+        // Verify user is still authenticated before saving
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || !session.user) {
+          // Not authenticated, save to localStorage instead
+          try {
+            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+          } catch (error) {
+            console.error('Failed to save settings:', error);
+          }
+          return;
+        }
+
         try {
-          const userId = await getUserId();
+          const userId = session.user.id;
           const { error } = await supabase
             .from('settings')
             .upsert({
