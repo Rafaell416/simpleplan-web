@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { ArrowLeft, LogOut, User } from 'lucide-react';
@@ -17,14 +18,21 @@ export default function ProfileSettingsPage() {
 
 function ProfileContent() {
   const { user, signOut, loading } = useAuth();
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleSignOut = async () => {
+    if (isSigningOut) return; // Prevent multiple clicks
+    
+    setIsSigningOut(true);
     try {
       await signOut();
       // Force a full page reload to the landing page to ensure clean state
       window.location.href = '/';
     } catch (error) {
       console.error('Error signing out:', error);
+      setIsSigningOut(false);
+      // Still try to redirect even if there was an error
+      window.location.href = '/';
     }
   };
 
@@ -73,9 +81,10 @@ function ProfileContent() {
                     onClick={handleSignOut}
                     variant="outline"
                     className="w-full"
+                    disabled={isSigningOut}
                   >
                     <LogOut className="w-4 h-4 mr-2" />
-                    Sign Out
+                    {isSigningOut ? 'Signing Out...' : 'Sign Out'}
                   </Button>
                 </div>
               </>

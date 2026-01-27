@@ -92,7 +92,7 @@ export function HabitForm({ onClose, onSubmit }: HabitFormProps) {
               </label>
               <select
                 id="action-recurrence"
-                value={recur.type}
+                value={recurrence.type}
                 onChange={(e) => {
                   const type = e.target.value as ActionRecurrence['type'];
                   if (type === 'weekly') {

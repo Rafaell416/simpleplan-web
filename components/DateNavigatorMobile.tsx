@@ -29,8 +29,8 @@ export function DateNavigatorMobile({ selectedDate, onDateChange, className = ''
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Tomorrow';
     if (diffDays === -1) return 'Yesterday';
-    if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} days`;
-    if (diffDays < -1 && diffDays >= -7) return `${Math.abs(diffDays)} days ago`;
+    if (diffDays > 1 && diffDays <= 10) return `In ${diffDays} days`;
+    if (diffDays < -1 && diffDays >= -10) return `${Math.abs(diffDays)} days ago`;
     
     // Format as date for other days
     const options: Intl.DateTimeFormatOptions = { 
@@ -42,21 +42,40 @@ export function DateNavigatorMobile({ selectedDate, onDateChange, className = ''
   };
 
   const goToPreviousDay = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const minDate = new Date(today);
+    minDate.setDate(today.getDate() - 10); // 10 days in the past
+    
+    const selected = new Date(selectedDate);
+    selected.setHours(0, 0, 0, 0);
+    
+    // Don't allow navigation beyond 10 days in the past
+    if (selected.getTime() <= minDate.getTime()) {
+      return;
+    }
+    
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() - 1);
-    onDateChange(newDate);
+    
+    // Ensure we don't exceed the 10-day limit
+    const newDateNormalized = new Date(newDate);
+    newDateNormalized.setHours(0, 0, 0, 0);
+    if (newDateNormalized.getTime() >= minDate.getTime()) {
+      onDateChange(newDate);
+    }
   };
 
   const goToNextDay = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const maxDate = new Date(today);
-    maxDate.setDate(today.getDate() + 7); // 7 days from today
+    maxDate.setDate(today.getDate() + 10); // 10 days from today
     
     const selected = new Date(selectedDate);
     selected.setHours(0, 0, 0, 0);
     
-    // Don't allow navigation beyond 7 days from today
+    // Don't allow navigation beyond 10 days from today
     if (selected.getTime() >= maxDate.getTime()) {
       return;
     }
@@ -64,7 +83,7 @@ export function DateNavigatorMobile({ selectedDate, onDateChange, className = ''
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + 1);
     
-    // Ensure we don't exceed the 7-day limit
+    // Ensure we don't exceed the 10-day limit
     const newDateNormalized = new Date(newDate);
     newDateNormalized.setHours(0, 0, 0, 0);
     if (newDateNormalized.getTime() <= maxDate.getTime()) {
@@ -72,12 +91,25 @@ export function DateNavigatorMobile({ selectedDate, onDateChange, className = ''
     }
   };
   
-  // Check if we can navigate forward (not more than 7 days from today)
+  // Check if we can navigate backward (not more than 10 days in the past)
+  const canNavigateBackward = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const minDate = new Date(today);
+    minDate.setDate(today.getDate() - 10);
+    
+    const selected = new Date(selectedDate);
+    selected.setHours(0, 0, 0, 0);
+    
+    return selected.getTime() > minDate.getTime();
+  };
+  
+  // Check if we can navigate forward (not more than 10 days from today)
   const canNavigateForward = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const maxDate = new Date(today);
-    maxDate.setDate(today.getDate() + 7);
+    maxDate.setDate(today.getDate() + 10);
     
     const selected = new Date(selectedDate);
     selected.setHours(0, 0, 0, 0);
@@ -90,10 +122,19 @@ export function DateNavigatorMobile({ selectedDate, onDateChange, className = ''
       {/* Up arrow for previous day */}
       <button
         onClick={goToPreviousDay}
-        className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-muted active:bg-muted/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 touch-manipulation"
+        disabled={!canNavigateBackward()}
+        className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 touch-manipulation ${
+          canNavigateBackward()
+            ? 'hover:bg-muted active:bg-muted/80'
+            : 'opacity-50 cursor-not-allowed'
+        }`}
         aria-label="Previous day"
       >
-        <ChevronUp className="w-4 h-4 text-muted-foreground" />
+        <ChevronUp className={`w-4 h-4 ${
+          canNavigateBackward()
+            ? 'text-muted-foreground'
+            : 'text-muted-foreground/50'
+        }`} />
       </button>
 
       {/* Date display with smooth transition - Compact for mobile */}

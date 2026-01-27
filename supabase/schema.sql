@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS todos (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   text TEXT NOT NULL,
   completed BOOLEAN NOT NULL DEFAULT false,
+  date DATE NOT NULL, -- Date for which this todo is scheduled
   action_id UUID REFERENCES actions(id) ON DELETE SET NULL, -- Link to action if it's an action todo
   goal_title TEXT, -- Cache goal title for display
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -61,7 +62,7 @@ CREATE TABLE IF NOT EXISTS settings (
   theme TEXT NOT NULL DEFAULT 'default' CHECK (theme IN ('default', 'nude-rose', 'nude-beige', 'sage-green', 'lavender', 'warm-sand', 'ocean-blue', 'soft-peach', 'charcoal', 'midnight')),
   font_size TEXT NOT NULL DEFAULT 'base' CHECK (font_size IN ('xs', 'sm', 'base', 'lg', 'xl', '2xl')),
   font_style TEXT NOT NULL DEFAULT 'system' CHECK (font_style IN ('system', 'sans-serif', 'geist-sans', 'inter', 'sf-pro', 'roboto', 'open-sans')),
-  dark_mode TEXT NOT NULL DEFAULT 'auto' CHECK (dark_mode IN ('light', 'dark', 'auto')),
+  dark_mode TEXT NOT NULL DEFAULT 'light' CHECK (dark_mode IN ('light', 'dark', 'auto')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user_id) -- One settings record per user
@@ -74,6 +75,8 @@ CREATE INDEX IF NOT EXISTS idx_action_completions_action_id ON action_completion
 CREATE INDEX IF NOT EXISTS idx_action_completions_date ON action_completions(date);
 CREATE INDEX IF NOT EXISTS idx_todos_user_id ON todos(user_id);
 CREATE INDEX IF NOT EXISTS idx_todos_action_id ON todos(action_id);
+CREATE INDEX IF NOT EXISTS idx_todos_date ON todos(date);
+CREATE INDEX IF NOT EXISTS idx_todos_user_date ON todos(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- Row Level Security (RLS) policies

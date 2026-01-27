@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TodoList, type Todo } from '@/components/TodoList';
+import { TodoSkeleton } from '@/components/TodoSkeleton';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { CircularProgress } from '@/components/CircularProgress';
 import { Confetti } from '@/components/Confetti';
@@ -30,6 +31,7 @@ function HomeContent() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const { goals, isLoading: goalsLoading, toggleActionCompletion } = useGoals();
   const { loading: authLoading } = useAuth();
+  const lastSavedDateRef = useRef<string>('');
 
   // Get actions applicable for selected date from all goals
   const actionsForSelectedDate = useMemo(() => {
@@ -64,7 +66,7 @@ function HomeContent() {
 
   // Merge regular todos with action todos for selected date
   const allTodos = useMemo(() => {
-    // Regular todos appear on all days (they're ongoing/recurring)
+    // Regular todos are already filtered by selected date when loaded
     const regularTodos = todos.filter(todo => !todo.actionId);
     
     // Combine regular todos with actions for selected date
@@ -78,10 +80,14 @@ function HomeContent() {
     });
   }, [todos, actionsForSelectedDate]);
 
-  // Load todos from Supabase on mount (wait for auth to be ready)
+  // Load todos from Supabase for the selected date
   useEffect(() => {
     // Wait for auth to finish loading before trying to load todos
     if (authLoading) return;
+
+    // Reset todos when date changes to avoid showing stale data
+    setTodos([]);
+    setIsLoaded(false);
 
     const loadTodos = async () => {
       // Check if Supabase is configured
@@ -96,13 +102,19 @@ function HomeContent() {
 
       setUseSupabase(true);
 
-      // Load todos from Supabase
+      // Load todos from Supabase for the selected date
       try {
         const userId = await getUserId();
+        // Normalize the date to ensure consistent formatting
+        const normalizedDate = new Date(selectedDate);
+        normalizedDate.setHours(0, 0, 0, 0);
+        const selectedDateStr = formatDate(normalizedDate);
+        
         const { data: dbTodos, error } = await supabase
           .from('todos')
           .select('*')
           .eq('user_id', userId)
+          .eq('date', selectedDateStr) // Filter by selected date
           .is('action_id', null) // Only get regular todos, not action todos
           .order('created_at', { ascending: true });
 
@@ -129,12 +141,15 @@ function HomeContent() {
     };
 
     loadTodos();
-  }, [authLoading]);
+  }, [authLoading, selectedDate]);
 
   // Save regular todos to Supabase whenever they change
   useEffect(() => {
     if (!isLoaded || goalsLoading || !useSupabase || authLoading) return;
-    if (todos.length === 0) return; // Don't save if no todos (initial load)
+    
+    // Skip saving if todos array is empty - this prevents deleting todos when navigating to a new date
+    // We only want to save when todos actually change, not when we're loading a new date
+    if (todos.length === 0) return;
 
     const saveTodos = async () => {
       try {
@@ -144,32 +159,40 @@ function HomeContent() {
           return;
         }
         
-        // Get current todos from database to compare
+        // Normalize the date to ensure consistent formatting
+        const normalizedDate = new Date(selectedDate);
+        normalizedDate.setHours(0, 0, 0, 0);
+        const selectedDateStr = formatDate(normalizedDate);
+        
+        // Get current todos from database for this date to compare
         const { data: existingTodos } = await supabase
           .from('todos')
           .select('id')
           .eq('user_id', userId)
+          .eq('date', selectedDateStr)
           .is('action_id', null);
 
         const existingIds = new Set((existingTodos || []).map((t: any) => t.id));
         const currentIds = new Set(todos.map((t: Todo) => t.id));
 
-        // Delete todos that are no longer in the list
+        // Delete todos that are no longer in the list for this date
         const toDelete = Array.from(existingIds).filter((id: unknown): id is string => typeof id === 'string' && !currentIds.has(id));
         if (toDelete.length > 0) {
           await supabase
             .from('todos')
             .delete()
             .in('id', toDelete)
-            .eq('user_id', userId);
+            .eq('user_id', userId)
+            .eq('date', selectedDateStr);
         }
 
-        // Upsert todos
+        // Upsert todos with the selected date
         const todosToUpsert = todos.map(todo => ({
           id: todo.id,
           user_id: userId,
           text: todo.text,
           completed: todo.completed,
+          date: selectedDateStr,
           action_id: null,
           goal_title: null,
         }));
@@ -181,6 +204,9 @@ function HomeContent() {
 
           if (error) {
             console.error('Error saving todos to Supabase:', error);
+          } else {
+            // Track that we successfully saved for this date
+            lastSavedDateRef.current = selectedDateStr;
           }
         }
       } catch (error) {
@@ -189,7 +215,7 @@ function HomeContent() {
     };
 
     saveTodos();
-  }, [todos, isLoaded, goalsLoading, useSupabase, authLoading]);
+  }, [todos, isLoaded, goalsLoading, useSupabase, authLoading, selectedDate]);
 
   // Handle todo changes (both regular todos and action todos)
   const handleTodosChange = (updatedTodos: Todo[]) => {
@@ -260,20 +286,39 @@ function HomeContent() {
       if (isOptionPressed && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
         if (e.key === 'ArrowUp') {
           e.preventDefault();
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const minDate = new Date(today);
+          minDate.setDate(today.getDate() - 10); // 10 days in the past
+          
+          const selected = new Date(selectedDate);
+          selected.setHours(0, 0, 0, 0);
+          
+          // Don't allow navigation beyond 10 days in the past
+          if (selected.getTime() <= minDate.getTime()) {
+            return;
+          }
+          
           const newDate = new Date(selectedDate);
           newDate.setDate(newDate.getDate() - 1);
-          setSelectedDate(newDate);
+          
+          // Ensure we don't exceed the 10-day limit
+          const newDateNormalized = new Date(newDate);
+          newDateNormalized.setHours(0, 0, 0, 0);
+          if (newDateNormalized.getTime() >= minDate.getTime()) {
+            setSelectedDate(newDate);
+          }
         } else if (e.key === 'ArrowDown') {
           e.preventDefault();
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           const maxDate = new Date(today);
-          maxDate.setDate(today.getDate() + 7); // 7 days from today
+          maxDate.setDate(today.getDate() + 10); // 10 days from today
           
           const selected = new Date(selectedDate);
           selected.setHours(0, 0, 0, 0);
           
-          // Don't allow navigation beyond 7 days from today
+          // Don't allow navigation beyond 10 days from today
           if (selected.getTime() >= maxDate.getTime()) {
             return;
           }
@@ -281,7 +326,7 @@ function HomeContent() {
           const newDate = new Date(selectedDate);
           newDate.setDate(newDate.getDate() + 1);
           
-          // Ensure we don't exceed the 7-day limit
+          // Ensure we don't exceed the 10-day limit
           const newDateNormalized = new Date(newDate);
           newDateNormalized.setHours(0, 0, 0, 0);
           if (newDateNormalized.getTime() <= maxDate.getTime()) {
@@ -354,11 +399,15 @@ function HomeContent() {
                   className="w-full absolute inset-0 bg-background overflow-y-auto"
                   style={{ padding: '4px' }}
                 >
-                  <TodoList 
-                    todos={allTodos} 
-                    onTodosChange={handleTodosChange}
-                    selectedDate={selectedDate}
-                  />
+                  {!isLoaded || goalsLoading ? (
+                    <TodoSkeleton />
+                  ) : (
+                    <TodoList 
+                      todos={allTodos} 
+                      onTodosChange={handleTodosChange}
+                      selectedDate={selectedDate}
+                    />
+                  )}
                 </motion.div>
               </AnimatePresence>
             </div>

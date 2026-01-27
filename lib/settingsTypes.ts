@@ -32,7 +32,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'default',
   fontSize: 'base',
   fontStyle: 'system',
-  darkMode: 'auto',
+  darkMode: 'light',
 };
 
 export const THEME_PALETTES: Record<

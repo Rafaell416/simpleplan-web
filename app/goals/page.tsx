@@ -1,7 +1,9 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { GoalsList } from '@/components/GoalsList';
+import { GoalSkeleton } from '@/components/GoalSkeleton';
 import { Goal, Action } from '@/lib/types';
 import { useGoals } from '@/lib/useGoals';
 import { AuthGuard } from '@/components/AuthGuard';
@@ -15,6 +17,7 @@ export default function GoalsPage() {
 }
 
 function GoalsContent() {
+  const router = useRouter();
   const {
     goals,
     isLoading,
@@ -27,7 +30,11 @@ function GoalsContent() {
 
   const handleGoalCreate = async (goalData: Omit<Goal, 'id' | 'createdAt' | 'actions'>) => {
     try {
-      await createGoal(goalData);
+      const newGoal = await createGoal(goalData);
+      // Navigate to the goal detail page
+      if (newGoal) {
+        router.push(`/goals/${newGoal.id}`);
+      }
     } catch (error) {
       console.error('Error creating goal:', error);
     }
@@ -54,14 +61,18 @@ function GoalsContent() {
       <Header title="Goals" />
       <div className="flex-1 flex items-start justify-center pt-24 pb-20 md:pb-32">
         <div className="w-full max-w-3xl mx-auto px-6 py-8">
-          <GoalsList
-            goals={goals}
-            onGoalCreate={handleGoalCreate}
-            onGoalUpdate={handleGoalUpdate}
-            onGoalDelete={handleGoalDelete}
-            onActionAdd={handleActionAdd}
-            onActionDelete={handleActionDelete}
-          />
+          {isLoading ? (
+            <GoalSkeleton />
+          ) : (
+            <GoalsList
+              goals={goals}
+              onGoalCreate={handleGoalCreate}
+              onGoalUpdate={handleGoalUpdate}
+              onGoalDelete={handleGoalDelete}
+              onActionAdd={handleActionAdd}
+              onActionDelete={handleActionDelete}
+            />
+          )}
         </div>
       </div>
     </main>
