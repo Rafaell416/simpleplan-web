@@ -12,6 +12,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 
 export interface Todo {
@@ -37,6 +43,8 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: To
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [todoToDelete, setTodoToDelete] = useState<string | null>(null);
+  const [goalDialogOpen, setGoalDialogOpen] = useState(false);
+  const [selectedGoalTitle, setSelectedGoalTitle] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const toggleTodo = (id: string) => {
@@ -266,9 +274,23 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: To
                   {todo.text}
                 </button>
                 {todo.actionId && todo.goalTitle && (
-                  <span className="text-xs text-muted-foreground px-2 py-0.5 rounded bg-muted">
-                    {todo.goalTitle}
-                  </span>
+                  <>
+                    {/* Desktop: Show badge */}
+                    <span className="hidden md:inline text-xs text-muted-foreground px-2 py-0.5 rounded bg-muted">
+                      {todo.goalTitle}
+                    </span>
+                    {/* Mobile: Show circle indicator */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedGoalTitle(todo.goalTitle || null);
+                        setGoalDialogOpen(true);
+                      }}
+                      className="md:hidden flex-shrink-0 w-5 h-5 rounded-full bg-muted border border-border hover:bg-muted/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                      aria-label={`View goal: ${todo.goalTitle}`}
+                      tabIndex={0}
+                    />
+                  </>
                 )}
               </div>
             )}
@@ -353,6 +375,18 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: To
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Goal Info Dialog (Mobile) */}
+      <Dialog open={goalDialogOpen} onOpenChange={setGoalDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Goal</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-base text-foreground">{selectedGoalTitle}</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
