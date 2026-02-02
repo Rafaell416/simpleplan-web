@@ -11,6 +11,7 @@ import { DateNavigator } from '@/components/DateNavigator';
 import { DateNavigatorMobile } from '@/components/DateNavigatorMobile';
 import { useGoals } from '@/lib/useGoals';
 import { isActionApplicableOnDay, isActionCompletedOnDate, formatDate } from '@/lib/utils/actionUtils';
+import { isActionOverdue } from '@/lib/utils/goalUtils';
 import { supabase } from '@/lib/supabase/client';
 import { getUserId } from '@/lib/supabase/rls';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -30,7 +31,7 @@ function HomeContent() {
   const [useSupabase, setUseSupabase] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const { goals, isLoading: goalsLoading, toggleActionCompletion } = useGoals();
-  const { loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const lastSavedDateRef = useRef<string>('');
 
   // Get actions applicable for selected date from all goals
@@ -48,6 +49,8 @@ function HomeContent() {
         if (isActionApplicableOnDay(action, selectedDateCopy)) {
           // Check if action is already completed on selected date
           const isCompleted = isActionCompletedOnDate(action, dateStr);
+          // Check if action is overdue
+          const overdue = isActionOverdue(action, goal, selectedDateCopy);
           
           applicableActions.push({
             id: `action-${action.id}-${dateStr}`,
@@ -56,6 +59,7 @@ function HomeContent() {
             actionId: action.id,
             goalId: action.goalId,
             goalTitle: goal.title,
+            isOverdue: overdue,
           });
         }
       });
@@ -84,10 +88,20 @@ function HomeContent() {
   useEffect(() => {
     // Wait for auth to finish loading before trying to load todos
     if (authLoading) return;
+    
+    // If user is not authenticated, don't try to load todos
+    // AuthGuard should handle redirect, but we need to set loaded to true to avoid infinite skeleton
+    if (!user) {
+      setIsLoaded(true);
+      setTodos([]);
+      return;
+    }
 
     // Reset todos when date changes to avoid showing stale data
     setTodos([]);
     setIsLoaded(false);
+
+    let isCancelled = false;
 
     const loadTodos = async () => {
       // Check if Supabase is configured
@@ -96,7 +110,9 @@ function HomeContent() {
       
       if (!supabaseUrl || !supabaseKey) {
         console.warn('Supabase not configured. Todos require Supabase.');
-        setIsLoaded(true);
+        if (!isCancelled) {
+          setIsLoaded(true);
+        }
         return;
       }
 
@@ -104,7 +120,23 @@ function HomeContent() {
 
       // Load todos from Supabase for the selected date
       try {
-        const userId = await getUserId();
+        let userId: string;
+        try {
+          userId = await getUserId();
+        } catch (authError) {
+          console.error('Error getting user ID:', authError);
+          // If we can't get user ID, user is not authenticated
+          // Set loaded to true so we don't show skeleton forever
+          if (!isCancelled) {
+            setTodos([]);
+            setIsLoaded(true);
+          }
+          return;
+        }
+        
+        // Check if this effect was cancelled (date changed while loading)
+        if (isCancelled) return;
+        
         // Normalize the date to ensure consistent formatting
         const normalizedDate = new Date(selectedDate);
         normalizedDate.setHours(0, 0, 0, 0);
@@ -118,9 +150,14 @@ function HomeContent() {
           .is('action_id', null) // Only get regular todos, not action todos
           .order('created_at', { ascending: true });
 
+        // Check again if cancelled
+        if (isCancelled) return;
+
         if (error) {
           console.error('Error loading todos from Supabase:', error);
-          setTodos([]);
+          if (!isCancelled) {
+            setTodos([]);
+          }
         } else {
           const convertedTodos: Todo[] = (dbTodos || []).map((todo: any) => ({
             id: todo.id,
@@ -130,18 +167,31 @@ function HomeContent() {
             goalId: undefined,
             goalTitle: todo.goal_title || undefined,
           }));
-          setTodos(convertedTodos);
+          if (!isCancelled) {
+            setTodos(convertedTodos);
+          }
         }
       } catch (error) {
         console.error('Error loading todos:', error);
-        setTodos([]);
+        // Only update state if not cancelled
+        if (!isCancelled) {
+          setTodos([]);
+        }
       } finally {
-        setIsLoaded(true);
+        // Always set loaded to true, even on error, but only if not cancelled
+        if (!isCancelled) {
+          setIsLoaded(true);
+        }
       }
     };
 
     loadTodos();
-  }, [authLoading, selectedDate]);
+
+    // Cleanup function to cancel the async operation if the effect re-runs
+    return () => {
+      isCancelled = true;
+    };
+  }, [authLoading, selectedDate, user]);
 
   // Save regular todos to Supabase whenever they change
   useEffect(() => {

@@ -75,6 +75,8 @@ async function dbGoalToGoal(dbGoal: any): Promise<Goal> {
     actions: goalActions,
     createdAt: dbGoal.created_at,
     targetDate: dbGoal.target_date || undefined,
+    completed: dbGoal.completed || false,
+    completedAt: dbGoal.completed_at || undefined,
   };
 }
 
@@ -159,6 +161,16 @@ export function useGoals() {
       const updateData: any = {};
       if (goalData.title !== undefined) updateData.title = goalData.title;
       if (goalData.targetDate !== undefined) updateData.target_date = goalData.targetDate || null;
+      if (goalData.completed !== undefined) {
+        updateData.completed = goalData.completed;
+        // Set completed_at when marking as complete, clear it when uncompleting
+        if (goalData.completed) {
+          updateData.completed_at = new Date().toISOString();
+        } else {
+          updateData.completed_at = null;
+        }
+      }
+      if (goalData.completedAt !== undefined) updateData.completed_at = goalData.completedAt || null;
 
       const { error } = await supabase
         .from('goals')
@@ -356,6 +368,13 @@ export function useGoals() {
     );
   }, []);
 
+  const markGoalComplete = useCallback(async (goalId: string, completed: boolean) => {
+    await updateGoal(goalId, { 
+      completed,
+      completedAt: completed ? new Date().toISOString() : undefined 
+    });
+  }, [updateGoal]);
+
   return {
     goals,
     isLoading,
@@ -367,5 +386,6 @@ export function useGoals() {
     updateAction,
     deleteAction,
     toggleActionCompletion,
+    markGoalComplete,
   };
 }

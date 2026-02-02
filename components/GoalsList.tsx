@@ -5,6 +5,7 @@ import { Goal, Action } from '@/lib/types';
 import { GoalForm } from './GoalForm';
 import { HabitForm } from './HabitForm';
 import { GoalCard } from './GoalCard';
+import { Button } from './ui/button';
 
 interface GoalsListProps {
   goals: Goal[];
@@ -28,6 +29,7 @@ export function GoalsList({
   const [isGoalFormOpen, setIsGoalFormOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [habitFormGoalId, setHabitFormGoalId] = useState<string | null>(null);
+  const [showCompleted, setShowCompleted] = useState(true);
 
   const handleGoalSubmit = (goalData: Omit<Goal, 'id' | 'createdAt' | 'actions'>) => {
     if (editingGoal) {
@@ -46,9 +48,29 @@ export function GoalsList({
     }
   };
 
+  // Filter goals based on completion status
+  const filteredGoals = showCompleted 
+    ? goals 
+    : goals.filter(goal => !goal.completed);
+
+  const completedCount = goals.filter(goal => goal.completed).length;
 
   return (
     <div className="w-full space-y-6">
+      {/* Filter Toggle */}
+      {completedCount > 0 && (
+        <div className="flex items-center justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowCompleted(!showCompleted)}
+            className="text-sm"
+          >
+            {showCompleted ? 'Hide' : 'Show'} Completed ({completedCount})
+          </Button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" style={{ gridAutoRows: '1fr' }}>
         {/* New Goal Card */}
         <button
@@ -81,7 +103,7 @@ export function GoalsList({
         </button>
 
         {/* Goal Cards */}
-        {goals.map((goal) => (
+        {filteredGoals.map((goal) => (
           <GoalCard key={goal.id} goal={goal} />
         ))}
       </div>

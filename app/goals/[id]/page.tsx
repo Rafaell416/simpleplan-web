@@ -9,8 +9,9 @@ import { ActionRecurrenceDialog } from '@/components/ActionRecurrenceDialog';
 import { ActionProgressTracker } from '@/components/ActionProgressTracker';
 import { Goal, Action, ActionRecurrence } from '@/lib/types';
 import { formatRecurrence } from '@/lib/utils/actionUtils';
+import { calculateGoalProgress, isGoalOverdue, getOverdueDays } from '@/lib/utils/goalUtils';
 import { useGoals } from '@/lib/useGoals';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,7 +44,7 @@ export default function GoalDetailPage() {
 function GoalDetailContent() {
   const params = useParams();
   const router = useRouter();
-  const { goals, updateGoal, deleteGoal, addAction, updateAction, deleteAction, isLoading } = useGoals();
+  const { goals, updateGoal, deleteGoal, addAction, updateAction, deleteAction, markGoalComplete, isLoading } = useGoals();
   const [isEditMode, setIsEditMode] = useState(false);
   const [newActionName, setNewActionName] = useState('');
   const [isInputMode, setIsInputMode] = useState(false);
@@ -54,6 +55,7 @@ function GoalDetailContent() {
   const [showRecurrenceDialog, setShowRecurrenceDialog] = useState(false);
   const [pendingActionName, setPendingActionName] = useState('');
   const [justUpdatedRecurrence, setJustUpdatedRecurrence] = useState(false);
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const desktopInputRef = useRef<HTMLInputElement>(null);
 
@@ -62,25 +64,10 @@ function GoalDetailContent() {
   // Backward compatibility: handle goals with old 'habits' property
   const goalActions: Action[] = goal?.actions ?? (goal as any)?.habits ?? [];
 
-  // Calculate progress based on target date
-  const calculateProgress = (): number => {
-    if (!goal?.targetDate) return 0;
-    
-    const now = new Date();
-    const created = new Date(goal.createdAt);
-    const target = new Date(goal.targetDate);
-    
-    const totalDuration = target.getTime() - created.getTime();
-    const elapsed = now.getTime() - created.getTime();
-    
-    if (totalDuration <= 0) return 100;
-    if (elapsed < 0) return 0;
-    
-    const progress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
-    return Math.round(progress);
-  };
-
-  const progress = calculateProgress();
+  // Calculate progress based on completed actions
+  const progress = goal ? calculateGoalProgress(goal) : 0;
+  const overdue = goal ? isGoalOverdue(goal) : false;
+  const overdueDays = goal ? getOverdueDays(goal) : 0;
 
   const handleUpdate = (goalData: Omit<Goal, 'id' | 'createdAt' | 'actions'>) => {
     if (goal) {
@@ -93,6 +80,13 @@ function GoalDetailContent() {
     if (goal) {
       deleteGoal(goal.id);
       router.push('/goals');
+    }
+  };
+
+  const handleMarkComplete = () => {
+    if (goal) {
+      markGoalComplete(goal.id, !goal.completed);
+      setShowCompleteDialog(false);
     }
   };
 
@@ -290,9 +284,27 @@ function GoalDetailContent() {
       <div className="pointer-events-none">
         <div className="w-full max-w-3xl px-6 mx-auto pt-8">
           <div className="flex items-center justify-between pointer-events-auto">
-            <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
-              {goal.title}
-            </h1>
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <h1 className={`text-2xl font-semibold tracking-tight ${
+                goal.completed 
+                  ? 'text-neutral-500 dark:text-neutral-500 line-through' 
+                  : 'text-neutral-900 dark:text-neutral-50'
+              }`}>
+                {goal.title}
+              </h1>
+              {overdue && (
+                <div className="flex items-center gap-2 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-md text-xs font-medium border border-red-200 dark:border-red-800">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>{overdueDays} {overdueDays === 1 ? 'day' : 'days'} overdue</span>
+                </div>
+              )}
+              {goal.completed && (
+                <div className="flex items-center gap-2 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-md text-xs font-medium border border-green-200 dark:border-green-800">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Completed</span>
+                </div>
+              )}
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
@@ -315,6 +327,9 @@ function GoalDetailContent() {
               <DropdownMenuContent align="end" className="w-40">
                 <DropdownMenuItem onClick={() => setIsEditMode(true)}>
                   Edit Goal
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowCompleteDialog(true)}>
+                  {goal.completed ? 'Mark as Incomplete' : 'Mark as Complete'}
                 </DropdownMenuItem>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -361,23 +376,32 @@ function GoalDetailContent() {
           </Link>
 
           {/* Progress Bar */}
-          {goal.targetDate && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  Progress
-                </span>
-                <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {progress}%
-                </span>
-              </div>
-              <Progress 
-                value={progress}
-                className="h-2 bg-neutral-200 dark:bg-neutral-800"
-                indicatorClassName="bg-green-500 dark:bg-green-400"
-              />
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Progress
+              </span>
+              <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                {progress}%
+              </span>
             </div>
-          )}
+            <Progress 
+              value={progress}
+              className="h-2 bg-neutral-200 dark:bg-neutral-800"
+              indicatorClassName={
+                goal.completed
+                  ? "bg-green-500 dark:bg-green-400"
+                  : overdue
+                  ? "bg-red-500 dark:bg-red-400"
+                  : "bg-green-500 dark:bg-green-400"
+              }
+            />
+            {goalActions.length > 0 && (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                {goalActions.filter(a => a.completions?.some(c => c.completed)).length} of {goalActions.length} actions completed
+              </p>
+            )}
+          </div>
 
           {/* Target Date */}
           {goal.targetDate && (
@@ -728,6 +752,37 @@ function GoalDetailContent() {
         actionName={pendingActionName || editingActionName}
         initialRecurrence={editingActionId ? editingActionRecurrence : undefined}
       />
+
+      {/* Mark Complete Confirmation Dialog */}
+      <AlertDialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {goal.completed ? 'Mark as Incomplete?' : 'Mark as Complete?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {goal.completed 
+                ? `Are you sure you want to mark "${goal.title}" as incomplete?`
+                : `Are you sure you want to mark "${goal.title}" as complete? This will indicate that you've finished working on this goal.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowCompleteDialog(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleMarkComplete}
+              className={goal.completed 
+                ? "bg-neutral-600 hover:bg-neutral-700 focus:ring-neutral-600"
+                : "bg-green-600 hover:bg-green-700 focus:ring-green-600"
+              }
+            >
+              {goal.completed ? 'Mark as Incomplete' : 'Mark as Complete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

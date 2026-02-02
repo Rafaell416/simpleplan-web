@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { AlertTriangle } from 'lucide-react';
 
 export interface Todo {
   id: string;
@@ -28,6 +29,7 @@ export interface Todo {
   actionId?: string;
   goalId?: string;
   goalTitle?: string;
+  isOverdue?: boolean; // Whether this action is overdue
 }
 
 interface TodoListProps {
@@ -231,7 +233,11 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: To
               }}
               tabIndex={editingId === todo.id ? -1 : 0}
               role="listitem"
-              className="group flex items-center gap-3 py-1.5 px-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:bg-neutral-50 dark:focus:bg-neutral-900/50 cursor-pointer"
+              className={`group flex items-center gap-3 py-1.5 px-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer ${
+                todo.isOverdue && !todo.completed
+                  ? 'border-l-4 border-red-500 dark:border-red-600 bg-red-50/50 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/20 focus:bg-red-50 dark:focus:bg-red-900/20'
+                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-900/50 focus:bg-neutral-50 dark:focus:bg-neutral-900/50'
+              }`}
             >
             <Checkbox
               checked={todo.completed}
@@ -265,18 +271,27 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: To
                   tabIndex={todo.actionId ? -1 : -1}
                   type="button"
                   disabled={!!todo.actionId}
-                  className={`flex-1 text-left text-base text-neutral-900 dark:text-neutral-50 transition-opacity min-w-0 break-words ${
+                  className={`flex-1 text-left text-base transition-opacity min-w-0 break-words ${
                     todo.completed
-                      ? 'opacity-50 line-through'
-                      : 'opacity-100'
+                      ? 'opacity-50 line-through text-neutral-500 dark:text-neutral-500'
+                      : todo.isOverdue
+                      ? 'text-red-700 dark:text-red-400 opacity-100'
+                      : 'text-neutral-900 dark:text-neutral-50 opacity-100'
                   } ${todo.actionId ? 'cursor-default' : 'cursor-pointer'}`}
                 >
                   {todo.text}
                 </button>
+                {todo.isOverdue && (
+                  <AlertTriangle className="w-4 h-4 text-red-500 dark:text-red-400 flex-shrink-0" />
+                )}
                 {todo.actionId && todo.goalTitle && (
                   <>
                     {/* Desktop: Show badge */}
-                    <span className="hidden md:inline text-xs text-muted-foreground px-2 py-0.5 rounded bg-muted">
+                    <span className={`hidden md:inline text-xs px-2 py-0.5 rounded ${
+                      todo.isOverdue
+                        ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
+                        : 'text-muted-foreground bg-muted'
+                    }`}>
                       {todo.goalTitle}
                     </span>
                     {/* Mobile: Show circle indicator */}
@@ -286,7 +301,11 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: To
                         setSelectedGoalTitle(todo.goalTitle || null);
                         setGoalDialogOpen(true);
                       }}
-                      className="md:hidden flex-shrink-0 w-5 h-5 rounded-full bg-muted border border-border hover:bg-muted/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                      className={`md:hidden flex-shrink-0 w-5 h-5 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                        todo.isOverdue
+                          ? 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50'
+                          : 'bg-muted border-border hover:bg-muted/80'
+                      }`}
                       aria-label={`View goal: ${todo.goalTitle}`}
                       tabIndex={0}
                     />
