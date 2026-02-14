@@ -33,6 +33,9 @@ function HomeContent() {
   const { goals, isLoading: goalsLoading, toggleActionCompletion } = useGoals();
   const { user, loading: authLoading } = useAuth();
   const lastSavedDateRef = useRef<string>('');
+  // Tracks which date the current `todos` state belongs to (set when load completes).
+  // Prevents saving today's todos under tomorrow's date when switching days.
+  const todosDateRef = useRef<string>('');
 
   // Get actions applicable for selected date from all goals
   const actionsForSelectedDate = useMemo(() => {
@@ -97,8 +100,9 @@ function HomeContent() {
       return;
     }
 
-    // Reset todos when date changes to avoid showing stale data
-    setTodos([]);
+    // Don't clear todos here: keep showing previous date until load completes.
+    // Clearing immediately caused the save effect to run with new selectedDate but
+    // old todos, writing them to the wrong day.
     setIsLoaded(false);
 
     let isCancelled = false;
@@ -157,6 +161,7 @@ function HomeContent() {
           console.error('Error loading todos from Supabase:', error);
           if (!isCancelled) {
             setTodos([]);
+            todosDateRef.current = selectedDateStr;
           }
         } else {
           const convertedTodos: Todo[] = (dbTodos || []).map((todo: any) => ({
@@ -169,13 +174,14 @@ function HomeContent() {
           }));
           if (!isCancelled) {
             setTodos(convertedTodos);
+            todosDateRef.current = selectedDateStr;
           }
         }
       } catch (error) {
         console.error('Error loading todos:', error);
-        // Only update state if not cancelled
         if (!isCancelled) {
           setTodos([]);
+          todosDateRef.current = formatDate(new Date(selectedDate));
         }
       } finally {
         // Always set loaded to true, even on error, but only if not cancelled
@@ -196,9 +202,12 @@ function HomeContent() {
   // Save regular todos to Supabase whenever they change
   useEffect(() => {
     if (!isLoaded || goalsLoading || !useSupabase || authLoading) return;
-    
-    // Skip saving if todos array is empty - this prevents deleting todos when navigating to a new date
-    // We only want to save when todos actually change, not when we're loading a new date
+
+    const selectedDateStr = formatDate(new Date(selectedDate.getTime()));
+    // Only save when the todos we have belong to the selected date.
+    // Otherwise we'd write one day's todos to another day when switching dates.
+    if (todosDateRef.current !== selectedDateStr) return;
+
     if (todos.length === 0) return;
 
     const saveTodos = async () => {
@@ -208,18 +217,15 @@ function HomeContent() {
           console.warn('No user ID available, skipping todo save');
           return;
         }
-        
-        // Normalize the date to ensure consistent formatting
-        const normalizedDate = new Date(selectedDate);
-        normalizedDate.setHours(0, 0, 0, 0);
-        const selectedDateStr = formatDate(normalizedDate);
-        
+
+        const dateStr = todosDateRef.current;
+
         // Get current todos from database for this date to compare
         const { data: existingTodos } = await supabase
           .from('todos')
           .select('id')
           .eq('user_id', userId)
-          .eq('date', selectedDateStr)
+          .eq('date', dateStr)
           .is('action_id', null);
 
         const existingIds = new Set((existingTodos || []).map((t: any) => t.id));
@@ -233,16 +239,15 @@ function HomeContent() {
             .delete()
             .in('id', toDelete)
             .eq('user_id', userId)
-            .eq('date', selectedDateStr);
+            .eq('date', dateStr);
         }
 
-        // Upsert todos with the selected date
         const todosToUpsert = todos.map(todo => ({
           id: todo.id,
           user_id: userId,
           text: todo.text,
           completed: todo.completed,
-          date: selectedDateStr,
+          date: dateStr,
           action_id: null,
           goal_title: null,
         }));
@@ -255,8 +260,7 @@ function HomeContent() {
           if (error) {
             console.error('Error saving todos to Supabase:', error);
           } else {
-            // Track that we successfully saved for this date
-            lastSavedDateRef.current = selectedDateStr;
+            lastSavedDateRef.current = dateStr;
           }
         }
       } catch (error) {
