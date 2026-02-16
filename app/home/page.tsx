@@ -13,7 +13,6 @@ import { useGoals } from '@/lib/useGoals';
 import { isActionApplicableOnDay, isActionCompletedOnDate, formatDate } from '@/lib/utils/actionUtils';
 import { isActionOverdue } from '@/lib/utils/goalUtils';
 import { supabase } from '@/lib/supabase/client';
-import { getUserId } from '@/lib/supabase/rls';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { AuthGuard } from '@/components/AuthGuard';
 
@@ -87,33 +86,32 @@ function HomeContent() {
     });
   }, [todos, actionsForSelectedDate]);
 
+  // Stable user ID for effect dependencies (avoids re-running on object reference changes)
+  const userId = user?.id;
+
   // Load todos from Supabase for the selected date
   useEffect(() => {
     // Wait for auth to finish loading before trying to load todos
-    if (authLoading) return;
+    if (authLoading) {
+      return;
+    }
     
     // If user is not authenticated, don't try to load todos
-    // AuthGuard should handle redirect, but we need to set loaded to true to avoid infinite skeleton
-    if (!user) {
+    if (!userId) {
       setIsLoaded(true);
       setTodos([]);
       return;
     }
 
-    // Don't clear todos here: keep showing previous date until load completes.
-    // Clearing immediately caused the save effect to run with new selectedDate but
-    // old todos, writing them to the wrong day.
     setIsLoaded(false);
 
     let isCancelled = false;
 
     const loadTodos = async () => {
-      // Check if Supabase is configured
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       
       if (!supabaseUrl || !supabaseKey) {
-        console.warn('Supabase not configured. Todos require Supabase.');
         if (!isCancelled) {
           setIsLoaded(true);
         }
@@ -122,43 +120,24 @@ function HomeContent() {
 
       setUseSupabase(true);
 
-      // Load todos from Supabase for the selected date
       try {
-        let userId: string;
-        try {
-          userId = await getUserId();
-        } catch (authError) {
-          console.error('Error getting user ID:', authError);
-          // If we can't get user ID, user is not authenticated
-          // Set loaded to true so we don't show skeleton forever
-          if (!isCancelled) {
-            setTodos([]);
-            setIsLoaded(true);
-          }
-          return;
-        }
-        
-        // Check if this effect was cancelled (date changed while loading)
         if (isCancelled) return;
         
-        // Normalize the date to ensure consistent formatting
         const normalizedDate = new Date(selectedDate);
         normalizedDate.setHours(0, 0, 0, 0);
         const selectedDateStr = formatDate(normalizedDate);
-        
+
         const { data: dbTodos, error } = await supabase
           .from('todos')
           .select('*')
           .eq('user_id', userId)
-          .eq('date', selectedDateStr) // Filter by selected date
-          .is('action_id', null) // Only get regular todos, not action todos
+          .eq('date', selectedDateStr)
+          .is('action_id', null)
           .order('created_at', { ascending: true });
 
-        // Check again if cancelled
         if (isCancelled) return;
 
         if (error) {
-          console.error('Error loading todos from Supabase:', error);
           if (!isCancelled) {
             setTodos([]);
             todosDateRef.current = selectedDateStr;
@@ -178,13 +157,11 @@ function HomeContent() {
           }
         }
       } catch (error) {
-        console.error('Error loading todos:', error);
         if (!isCancelled) {
           setTodos([]);
           todosDateRef.current = formatDate(new Date(selectedDate));
         }
       } finally {
-        // Always set loaded to true, even on error, but only if not cancelled
         if (!isCancelled) {
           setIsLoaded(true);
         }
@@ -193,11 +170,10 @@ function HomeContent() {
 
     loadTodos();
 
-    // Cleanup function to cancel the async operation if the effect re-runs
     return () => {
       isCancelled = true;
     };
-  }, [authLoading, selectedDate, user]);
+  }, [authLoading, selectedDate, userId]);
 
   // Save regular todos to Supabase whenever they change
   useEffect(() => {
@@ -212,7 +188,6 @@ function HomeContent() {
 
     const saveTodos = async () => {
       try {
-        const userId = await getUserId();
         if (!userId) {
           console.warn('No user ID available, skipping todo save');
           return;

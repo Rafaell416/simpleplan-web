@@ -31,58 +31,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  // Helper to ensure user record exists in database
-  const ensureUserRecordExists = async (userId: string, email?: string | null) => {
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle();
+  // Ensure user record exists - fire-and-forget, NEVER call from inside a lock context
+  const ensureUserRecordExistsAsync = (userId: string, email?: string | null) => {
+    (async () => {
+      try {
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
 
-    if (!existingUser) {
-      await supabase
-        .from('users')
-        .insert({
-          id: userId,
-          email: email || null,
-        });
-    }
+        if (!existingUser) {
+          await supabase
+            .from('users')
+            .insert({
+              id: userId,
+              email: email || null,
+            });
+        }
+      } catch (error) {
+        console.error('Error ensuring user record exists:', error);
+      }
+    })();
   };
 
   useEffect(() => {
-    // Initialize auth state
-    const initializeAuth = async () => {
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('Error getting session:', sessionError);
-        }
-        
-        if (session && session.user) {
-          setSession(session);
-          setUser(session.user);
-          // Ensure user record exists
-          try {
-            await ensureUserRecordExists(session.user.id, session.user.email);
-          } catch (error) {
-            console.error('Error ensuring user record exists:', error);
-          }
-        }
-        setLoading(false);
-      } catch (error) {
-        console.error('Error in initializeAuth:', error);
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
-
-    // Listen for auth changes
+    // Use onAuthStateChange as the single source of truth.
+    // INITIAL_SESSION fires immediately for the current session.
+    // IMPORTANT: callback must NOT be async to avoid deadlocks with
+    // Supabase's internal navigator.locks used by getSession().
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Don't update state if we're in the process of signing out
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         setSession(null);
         setUser(null);
@@ -95,12 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
       setLoading(false);
 
-      if (event === 'SIGNED_IN' && session?.user) {
-        try {
-          await ensureUserRecordExists(session.user.id, session.user.email);
-        } catch (error) {
-          console.error('Error ensuring user record exists:', error);
-        }
+      // Fire-and-forget: don't await inside onAuthStateChange to avoid lock deadlocks
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        ensureUserRecordExistsAsync(session.user.id, session.user.email);
       }
     });
 

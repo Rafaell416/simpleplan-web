@@ -15,5 +15,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    storageKey: 'simpleplan-auth',
+    // Use a simple lock to avoid navigator.locks deadlocks during
+    // concurrent getSession() calls (React Strict Mode, HMR, etc.)
+    lock: async (name: string, acquireTimeout: number, fn: () => Promise<any>) => {
+      return await fn();
+    },
   },
 });

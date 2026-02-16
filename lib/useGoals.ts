@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Goal, Action, ActionRecurrence, ActionCompletion } from './types';
 import { supabase } from './supabase/client';
 import { getUserId } from './supabase/rls';
+import { useAuth } from './auth/AuthProvider';
 
 // Helper to convert database action to Action type
 function dbActionToAction(dbAction: any, completions: ActionCompletion[] = []): Action {
@@ -83,49 +84,65 @@ async function dbGoalToGoal(dbGoal: any): Promise<Goal> {
 export function useGoals() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { user, loading: authLoading } = useAuth();
+  const authUserId = user?.id;
 
-  // Load goals from Supabase on mount
+  // Load goals when userId is available
   useEffect(() => {
+    if (authLoading) return;
+
+    if (!authUserId) {
+      setGoals([]);
+      setIsLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+
     const loadGoals = async () => {
-      // Check if Supabase is configured
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       
       if (!supabaseUrl || !supabaseKey) {
         console.warn('Supabase not configured. Goals require Supabase.');
-        setIsLoading(false);
+        if (!isCancelled) setIsLoading(false);
         return;
       }
 
-      // Load goals from Supabase
       try {
-        const userId = await getUserId();
         const { data: dbGoals, error } = await supabase
           .from('goals')
           .select('*')
-          .eq('user_id', userId)
+          .eq('user_id', authUserId)
           .order('created_at', { ascending: false });
+
+        if (isCancelled) return;
 
         if (error) {
           console.error('Error loading goals from Supabase:', error);
           setGoals([]);
         } else {
-          // Convert database goals to Goal type
           const convertedGoals = await Promise.all(
             (dbGoals || []).map(dbGoalToGoal)
           );
-          setGoals(convertedGoals);
+          if (!isCancelled) setGoals(convertedGoals);
         }
       } catch (error) {
         console.error('Error loading goals:', error);
-        setGoals([]);
+        if (!isCancelled) setGoals([]);
       } finally {
-        setIsLoading(false);
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadGoals();
-  }, []);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [authLoading, authUserId]);
 
   const createGoal = useCallback(async (goalData: Omit<Goal, 'id' | 'createdAt' | 'actions'>) => {
     try {
