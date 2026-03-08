@@ -75,20 +75,43 @@ export function isActionOverdue(action: Action, goal: Goal, date: Date): boolean
 }
 
 /**
- * Calculate goal progress based on completed actions
- * Returns a percentage (0-100) based on how many actions are completed
+ * Calculate goal progress as the average completion rate across all actions.
+ * Each action's rate = completed applicable days / total applicable days
+ * (from action creation date through today).
  */
 export function calculateGoalProgress(goal: Goal): number {
   if (goal.actions.length === 0) {
     return 0;
   }
-  
-  // Count completed actions
-  // An action is considered completed if it has at least one completion record
-  const completedActions = goal.actions.filter(action => {
-    return action.completions && action.completions.some(c => c.completed);
-  }).length;
-  
-  const progress = (completedActions / goal.actions.length) * 100;
-  return Math.round(progress);
+
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+
+  let totalPercentage = 0;
+
+  for (const action of goal.actions) {
+    const createdAt = new Date(action.createdAt);
+    createdAt.setHours(0, 0, 0, 0);
+
+    let applicableCount = 0;
+    let completedCount = 0;
+
+    const cursor = new Date(createdAt);
+    while (cursor <= today) {
+      if (isActionApplicableOnDay(action, cursor)) {
+        applicableCount++;
+        const dateStr = formatDate(cursor);
+        if (isActionCompletedOnDate(action, dateStr)) {
+          completedCount++;
+        }
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    if (applicableCount > 0) {
+      totalPercentage += (completedCount / applicableCount) * 100;
+    }
+  }
+
+  return Math.round(totalPercentage / goal.actions.length);
 }

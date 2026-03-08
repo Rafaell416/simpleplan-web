@@ -36,9 +36,10 @@ interface TodoListProps {
   todos: Todo[];
   onTodosChange: (todos: Todo[]) => void;
   selectedDate?: Date;
+  onCopyToTomorrow?: (todo: Todo) => void;
 }
 
-export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: TodoListProps) {
+export function TodoList({ todos, onTodosChange, selectedDate = new Date(), onCopyToTomorrow }: TodoListProps) {
 
   const [newTodo, setNewTodo] = useState('');
   const [isInputMode, setIsInputMode] = useState(false);
@@ -315,29 +316,57 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date() }: To
             )}
             
             {!todo.actionId && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteClick(todo.id);
-                }}
-                tabIndex={-1}
-                className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded focus:opacity-100"
-                aria-label="Delete task"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <div className="flex items-center gap-1">
+                {onCopyToTomorrow && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCopyToTomorrow(todo);
+                    }}
+                    tabIndex={-1}
+                    className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded focus:opacity-100"
+                    aria-label="Copy to tomorrow"
+                    title="Copy to tomorrow"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 7l5 5m0 0l-5 5m5-5H6"
+                      />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteClick(todo.id);
+                  }}
+                  tabIndex={-1}
+                  className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded focus:opacity-100"
+                  aria-label="Delete task"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
             )}
             </motion.div>
           ))}

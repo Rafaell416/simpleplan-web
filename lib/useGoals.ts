@@ -78,6 +78,7 @@ async function dbGoalToGoal(dbGoal: any): Promise<Goal> {
     targetDate: dbGoal.target_date || undefined,
     completed: dbGoal.completed || false,
     completedAt: dbGoal.completed_at || undefined,
+    paused: dbGoal.paused || false,
   };
 }
 
@@ -188,6 +189,7 @@ export function useGoals() {
         }
       }
       if (goalData.completedAt !== undefined) updateData.completed_at = goalData.completedAt || null;
+      if (goalData.paused !== undefined) updateData.paused = goalData.paused;
 
       const { error } = await supabase
         .from('goals')
@@ -392,6 +394,10 @@ export function useGoals() {
     });
   }, [updateGoal]);
 
+  const toggleGoalPaused = useCallback(async (goalId: string, paused: boolean) => {
+    await updateGoal(goalId, { paused });
+  }, [updateGoal]);
+
   return {
     goals,
     isLoading,
@@ -404,5 +410,6 @@ export function useGoals() {
     deleteAction,
     toggleActionCompletion,
     markGoalComplete,
+    toggleGoalPaused,
   };
 }

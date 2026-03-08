@@ -44,7 +44,7 @@ export default function GoalDetailPage() {
 function GoalDetailContent() {
   const params = useParams();
   const router = useRouter();
-  const { goals, updateGoal, deleteGoal, addAction, updateAction, deleteAction, markGoalComplete, isLoading } = useGoals();
+  const { goals, updateGoal, deleteGoal, addAction, updateAction, deleteAction, markGoalComplete, toggleGoalPaused, isLoading } = useGoals();
   const [isEditMode, setIsEditMode] = useState(false);
   const [newActionName, setNewActionName] = useState('');
   const [isInputMode, setIsInputMode] = useState(false);
@@ -304,6 +304,14 @@ function GoalDetailContent() {
                   <span>Completed</span>
                 </div>
               )}
+              {goal.paused && !goal.completed && (
+                <div className="flex items-center gap-2 px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-md text-xs font-medium border border-amber-200 dark:border-amber-800">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Paused</span>
+                </div>
+              )}
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -331,6 +339,11 @@ function GoalDetailContent() {
                 <DropdownMenuItem onClick={() => setShowCompleteDialog(true)}>
                   {goal.completed ? 'Mark as Incomplete' : 'Mark as Complete'}
                 </DropdownMenuItem>
+                {!goal.completed && (
+                  <DropdownMenuItem onClick={() => toggleGoalPaused(goal.id, !goal.paused)}>
+                    {goal.paused ? 'Resume Goal' : 'Pause Goal'}
+                  </DropdownMenuItem>
+                )}
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <DropdownMenuItem
@@ -398,7 +411,7 @@ function GoalDetailContent() {
             />
             {goalActions.length > 0 && (
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                {goalActions.filter(a => a.completions?.some(c => c.completed)).length} of {goalActions.length} actions completed
+                {progress}% average completion across {goalActions.length} {goalActions.length === 1 ? 'action' : 'actions'}
               </p>
             )}
           </div>

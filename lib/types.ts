@@ -27,8 +27,9 @@ export interface Goal {
   title: string;
   actions: Action[];
   createdAt: string;
-  targetDate?: string; // Optional target date for the goal
-  completed?: boolean; // Whether the goal is marked as complete
-  completedAt?: string; // Date when the goal was marked as complete
+  targetDate?: string;
+  completed?: boolean;
+  completedAt?: string;
+  paused?: boolean;
 }
 

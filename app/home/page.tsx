@@ -46,6 +46,7 @@ function HomeContent() {
     const applicableActions: Todo[] = [];
 
     goals.forEach(goal => {
+      if (goal.paused) return;
       goal.actions.forEach(action => {
         // Check if action is applicable on selected date
         if (isActionApplicableOnDay(action, selectedDateCopy)) {
@@ -278,6 +279,32 @@ function HomeContent() {
     });
   };
 
+  const handleCopyToTomorrow = async (todo: Todo) => {
+    if (!userId) return;
+
+    const tomorrow = new Date(selectedDate);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const tomorrowStr = formatDate(tomorrow);
+
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .insert({
+          user_id: userId,
+          text: todo.text,
+          completed: false,
+          date: tomorrowStr,
+        });
+
+      if (error) {
+        console.error('Error copying todo to tomorrow:', error);
+      }
+    } catch (error) {
+      console.error('Error copying todo to tomorrow:', error);
+    }
+  };
+
   // Calculate progress
   const totalTodos = allTodos.length;
   const completedTodos = allTodos.filter(todo => todo.completed).length;
@@ -435,6 +462,7 @@ function HomeContent() {
                       todos={allTodos} 
                       onTodosChange={handleTodosChange}
                       selectedDate={selectedDate}
+                      onCopyToTomorrow={handleCopyToTomorrow}
                     />
                   )}
                 </motion.div>

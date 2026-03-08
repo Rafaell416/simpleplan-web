@@ -23,6 +23,8 @@ export function GoalCard({ goal }: GoalCardProps) {
           ? 'border-red-500 dark:border-red-600' 
           : goal.completed
           ? 'border-green-500 dark:border-green-600'
+          : goal.paused
+          ? 'border-amber-400 dark:border-amber-600'
           : 'border-neutral-200 dark:border-neutral-800'
       }`}
     >
@@ -54,10 +56,30 @@ export function GoalCard({ goal }: GoalCardProps) {
               />
             </svg>
           )}
+          {goal.paused && !goal.completed && (
+            <svg
+              className="w-4 h-4 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          )}
         </div>
         {overdue && (
           <span className="text-xs text-red-600 dark:text-red-400 mt-1 inline-block">
             Overdue
+          </span>
+        )}
+        {goal.paused && !goal.completed && !overdue && (
+          <span className="text-xs text-amber-600 dark:text-amber-400 mt-1 inline-block">
+            Paused
           </span>
         )}
       </div>
@@ -73,6 +95,8 @@ export function GoalCard({ goal }: GoalCardProps) {
                   ? 'bg-green-500 dark:bg-green-400'
                   : overdue
                   ? 'bg-red-500 dark:bg-red-400'
+                  : goal.paused
+                  ? 'bg-amber-500 dark:bg-amber-400'
                   : 'bg-emerald-500 dark:bg-emerald-400'
               }`}
               style={{ width: `${progress}%` }}
