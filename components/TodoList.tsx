@@ -46,6 +46,7 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date(), onCo
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [todoToDelete, setTodoToDelete] = useState<string | null>(null);
+  const [todoToCopy, setTodoToCopy] = useState<Todo | null>(null);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
   const [selectedGoalTitle, setSelectedGoalTitle] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -321,10 +322,10 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date(), onCo
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onCopyToTomorrow(todo);
+                      setTodoToCopy(todo);
                     }}
                     tabIndex={-1}
-                    className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded focus:opacity-100"
+                    className="md:opacity-0 md:group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded focus:opacity-100"
                     aria-label="Copy to tomorrow"
                     title="Copy to tomorrow"
                   >
@@ -349,7 +350,7 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date(), onCo
                     handleDeleteClick(todo.id);
                   }}
                   tabIndex={-1}
-                  className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded focus:opacity-100"
+                  className="md:opacity-0 md:group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded focus:opacity-100"
                   aria-label="Delete task"
                 >
                   <svg
@@ -419,6 +420,38 @@ export function TodoList({ todos, onTodosChange, selectedDate = new Date(), onCo
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Copy to Tomorrow Confirmation Dialog */}
+      <AlertDialog open={!!todoToCopy} onOpenChange={(open) => !open && setTodoToCopy(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Copy to Tomorrow</AlertDialogTitle>
+            <AlertDialogDescription>
+              {todoToCopy && (
+                <>
+                  Copy &ldquo;{todoToCopy.text}&rdquo; to tomorrow? The original task will remain on today.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTodoToCopy(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (todoToCopy && onCopyToTomorrow) {
+                  onCopyToTomorrow(todoToCopy);
+                }
+                setTodoToCopy(null);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 focus:ring-blue-600"
+            >
+              Copy
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
