@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Dock, DockIcon, DockItem, DockLabel } from '@/components/ui/shadcn-io/dock';
 import { HouseIcon } from '@/components/ui/icons/lucide-house';
+import { ChartLineIcon } from '@/components/ui/icons/lucide-chart-line';
 import { SettingsIcon } from '@/components/ui/icons/lucide-settings';
 import { TrophyIcon } from '@/components/ui/icons/lucide-trophy';
 
@@ -12,6 +13,11 @@ const items = [
     title: 'Home',
     href: '/home',
     icon: HouseIcon,
+  },
+  {
+    title: 'Stats',
+    href: '/stats',
+    icon: ChartLineIcon,
   },
   {
     title: 'Goals',
