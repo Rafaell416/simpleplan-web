@@ -47,6 +47,17 @@ function HomeContent() {
 
     goals.forEach(goal => {
       if (goal.paused) return;
+      if (goal.completed) {
+        // date-only comparison (local midnight)
+        const completedDate = goal.completedAt
+          ? new Date(goal.completedAt)
+          : new Date();
+        completedDate.setHours(0, 0, 0, 0);
+        // hide actions for future days; past history stays visible
+        if (selectedDateCopy.getTime() > completedDate.getTime()) {
+          return;
+        }
+      }
       goal.actions.forEach(action => {
         // Check if action is applicable on selected date
         if (isActionApplicableOnDay(action, selectedDateCopy)) {
