@@ -115,3 +115,29 @@ export function calculateGoalProgress(goal: Goal): number {
 
   return Math.round(totalPercentage / goal.actions.length);
 }
+
+/**
+ * Calculate time progress (0-100) based on createdAt -> targetDate.
+ * Returns null if goal has no target date.
+ */
+export function calculateGoalTimeProgress(goal: Goal): number | null {
+  if (!goal.targetDate) return null;
+
+  const start = new Date(goal.createdAt);
+  const end = new Date(goal.targetDate);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return null;
+  }
+
+  const now = new Date();
+  const total = end.getTime() - start.getTime();
+
+  if (total <= 0) {
+    return now >= end ? 100 : 0;
+  }
+
+  const elapsed = now.getTime() - start.getTime();
+  const pct = (elapsed / total) * 100;
+  return Math.max(0, Math.min(100, Math.round(pct)));
+}

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { Goal } from '@/lib/types';
-import { calculateGoalProgress, isGoalOverdue } from '@/lib/utils/goalUtils';
+import { calculateGoalProgress, calculateGoalTimeProgress, isGoalOverdue } from '@/lib/utils/goalUtils';
 import { AlertTriangle } from 'lucide-react';
 
 interface GoalCardProps {
@@ -13,6 +13,7 @@ export function GoalCard({ goal }: GoalCardProps) {
   const router = useRouter();
 
   const progress = calculateGoalProgress(goal);
+  const timeProgress = calculateGoalTimeProgress(goal);
   const overdue = isGoalOverdue(goal);
 
   return (
@@ -88,19 +89,31 @@ export function GoalCard({ goal }: GoalCardProps) {
       <div className="mt-auto">
         {/* Progress Bar Section */}
         <div className="mb-3">
-          <div className="w-full h-2 bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
-            <div
-              className={`h-full transition-all duration-300 ease-out rounded-full ${
-                goal.completed
-                  ? 'bg-green-500 dark:bg-green-400'
-                  : overdue
-                  ? 'bg-red-500 dark:bg-red-400'
-                  : goal.paused
-                  ? 'bg-amber-500 dark:bg-amber-400'
-                  : 'bg-emerald-500 dark:bg-emerald-400'
-              }`}
-              style={{ width: `${progress}%` }}
-            />
+          <div className="space-y-1.5">
+            <div className="w-full h-2 bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ease-out rounded-full ${
+                  goal.completed
+                    ? 'bg-green-500 dark:bg-green-400'
+                    : overdue
+                    ? 'bg-red-500 dark:bg-red-400'
+                    : goal.paused
+                    ? 'bg-amber-500 dark:bg-amber-400'
+                    : 'bg-emerald-500 dark:bg-emerald-400'
+                }`}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            {typeof timeProgress === 'number' && (
+              <div className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 ease-out rounded-full ${
+                    overdue ? 'bg-red-300 dark:bg-red-500/70' : 'bg-blue-500/60 dark:bg-blue-400/60'
+                  }`}
+                  style={{ width: `${timeProgress}%` }}
+                />
+              </div>
+            )}
           </div>
         </div>
 

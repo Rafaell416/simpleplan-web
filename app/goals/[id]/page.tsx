@@ -9,7 +9,7 @@ import { ActionRecurrenceDialog } from '@/components/ActionRecurrenceDialog';
 import { ActionProgressTracker } from '@/components/ActionProgressTracker';
 import { Goal, Action, ActionRecurrence } from '@/lib/types';
 import { formatRecurrence } from '@/lib/utils/actionUtils';
-import { calculateGoalProgress, isGoalOverdue, getOverdueDays } from '@/lib/utils/goalUtils';
+import { calculateGoalProgress, calculateGoalTimeProgress, isGoalOverdue, getOverdueDays } from '@/lib/utils/goalUtils';
 import { useGoals } from '@/lib/useGoals';
 import { ArrowLeft, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import {
@@ -66,6 +66,7 @@ function GoalDetailContent() {
 
   // Calculate progress based on completed actions
   const progress = goal ? calculateGoalProgress(goal) : 0;
+  const timeProgress = goal ? calculateGoalTimeProgress(goal) : null;
   const overdue = goal ? isGoalOverdue(goal) : false;
   const overdueDays = goal ? getOverdueDays(goal) : 0;
 
@@ -388,7 +389,7 @@ function GoalDetailContent() {
             Back to Goals
           </Link>
 
-          {/* Progress Bar */}
+          {/* Progress Bars */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
@@ -409,6 +410,23 @@ function GoalDetailContent() {
                   : "bg-green-500 dark:bg-green-400"
               }
             />
+            {typeof timeProgress === 'number' && (
+              <div className="mt-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                    Time
+                  </span>
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                    {timeProgress}%
+                  </span>
+                </div>
+                <Progress
+                  value={timeProgress}
+                  className="h-1.5 bg-neutral-200 dark:bg-neutral-800"
+                  indicatorClassName={overdue ? "bg-red-300 dark:bg-red-500/70" : "bg-blue-500/60 dark:bg-blue-400/60"}
+                />
+              </div>
+            )}
             {goalActions.length > 0 && (
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                 {progress}% average completion across {goalActions.length} {goalActions.length === 1 ? 'action' : 'actions'}
